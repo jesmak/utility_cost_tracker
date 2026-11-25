@@ -1013,7 +1013,7 @@ export class UtilityCostCard extends LitElement {
                 .chart > * {
                     flex: none;
                 }
-                /* A card held low scrolls its bill or legend first, and only then draws its bars lower. */
+                /* A card held low scrolls its bill first, and only then draws its bars lower. */
                 .held .list {
                     flex: 0 1000 auto;
                     min-height: ${LIST_HEIGHT}px;
@@ -1269,8 +1269,13 @@ export class UtilityCostCard extends LitElement {
                 .chart {
                     --scale: 32px;
                 }
+                /* A legend is short, so the bars give way to it first, and it scrolls only when they are at their least. */
                 .held .legend {
+                    flex-shrink: 1;
                     min-height: ${LEGEND_HEIGHT}px;
+                }
+                .held .content:has(.legend) .chart {
+                    flex-shrink: 1000;
                 }
                 .chart > .plot {
                     flex: 1 1 ${CHART_HEIGHT}px;
