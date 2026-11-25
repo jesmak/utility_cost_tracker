@@ -5,12 +5,23 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
+from . import history, websocket
+from .const import DOMAIN
 from .tracker import Tracker
 
 PLATFORMS = [Platform.SENSOR]
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 type UtilityCostConfigEntry = ConfigEntry[Tracker]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    websocket.async_register(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: UtilityCostConfigEntry) -> bool:
@@ -31,6 +42,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: UtilityCostConfigEntry)
 
 async def async_remove_entry(hass: HomeAssistant, entry: UtilityCostConfigEntry) -> None:
     await Tracker(hass, entry).async_remove()
+    await history.async_clear(hass, entry)
 
 
 async def async_update_listener(hass: HomeAssistant, entry: UtilityCostConfigEntry) -> None:

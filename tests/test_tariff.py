@@ -272,3 +272,67 @@ def test_the_hour_repeated_when_summer_time_ends_is_an_hour_of_its_own() -> None
     readings(ledger, (first, 0.0), (first.replace(minute=45), 1.0), (second, 3.0))
     assert ledger.totals("hour").items["m"] == 2.0
     assert ledger.totals("day").items["m"] == 3.0
+
+
+def test_running_sums_never_start_over_and_an_ended_hour_is_handed_out_once() -> None:
+    fee = Item("fee", "energy", KIND_FIXED_FEE, price=10, fee_period="day")
+    ledger = Ledger(site(Item("energy", "energy", KIND_CONSTANT, price=2), fee))
+    readings(ledger, (at(2026, 11, 25, 22, 10), 100), (at(2026, 11, 25, 22, 50), 101))
+    assert ledger.closed == []
+    # The next reading is past midnight: the hour that ended has the first day's fee and consumption, not the second's.
+    readings(ledger, (at(2026, 11, 26, 0, 20), 103))
+    (hour,) = ledger.closed
+    assert hour.start == at(2026, 11, 25, 22)
+    assert hour.amounts == pytest.approx({"energy": 2, "fee": 10})
+    assert hour.taxes == pytest.approx({"energy": 0.51, "fee": 2.55})
+    assert hour.consumed == pytest.approx(1)
+    assert ledger.sums == pytest.approx({"energy": 6, "fee": 20})
+    assert ledger.consumed == pytest.approx(3)
+    assert ledger.totals("day").items == pytest.approx({"energy": 4, "fee": 10})
+    assert ledger.used["day"] == pytest.approx(2)
+    assert ledger.used["month"] == pytest.approx(3)
+
+
+def test_only_the_sites_own_meter_is_its_consumption() -> None:
+    charger = Item("charger", "energy", KIND_CONSTANT, price=1, consumption_entity="sensor.charger")
+    ledger = Ledger(site(Item("energy", "energy", KIND_CONSTANT, price=2), charger))
+    moment = at(2026, 11, 25, 12)
+    readings(ledger, (moment, 100), (moment, 104))
+    ledger.read("sensor.charger", 10, moment, no_sensor)
+    ledger.read("sensor.charger", 13, moment, no_sensor)
+    assert ledger.consumed == pytest.approx(4)
+    assert ledger.sums == pytest.approx({"energy": 8, "charger": 3})
+
+
+def test_the_running_sums_continue_from_storage() -> None:
+    ledger = Ledger(site(Item("energy", "energy", KIND_CONSTANT, price=2)))
+    readings(ledger, (at(2026, 11, 25, 12), 100), (at(2026, 11, 25, 12, 30), 101))
+    restored = Ledger(ledger.site)
+    restored.load(ledger.dump(), ["energy"])
+    readings(restored, (at(2026, 11, 25, 13, 5), 102))
+    (hour,) = restored.closed
+    assert (hour.start, hour.amounts, hour.consumed) == (at(2026, 11, 25, 12), pytest.approx({"energy": 2}), pytest.approx(1))
+    assert restored.sums == pytest.approx({"energy": 4})
+
+
+def test_storage_from_before_the_running_sums_loads_and_the_sums_start_from_there() -> None:
+    old = Ledger(site(Item("energy", "energy", KIND_CONSTANT, price=2)))
+    readings(old, (at(2026, 11, 25, 12), 100), (at(2026, 11, 25, 12, 30), 101))
+    stored = {key: value for key, value in old.dump().items() if key not in ("used", "sums", "tax_sums", "consumed", "since", "hour")}
+    ledger = Ledger(old.site)
+    ledger.load(stored, ["energy"])
+    readings(ledger, (at(2026, 11, 25, 12, 40), 102), (at(2026, 11, 25, 13, 5), 103))
+    # The day's total holds what was counted before, the sums and the history only what came after.
+    assert ledger.totals("day").items == pytest.approx({"energy": 6})
+    assert ledger.since == at(2026, 11, 25, 12)
+    (hour,) = ledger.closed
+    assert (hour.start, hour.amounts, hour.consumed) == (at(2026, 11, 25, 12), pytest.approx({"energy": 2}), pytest.approx(1))
+    assert ledger.sums == pytest.approx({"energy": 4})
+
+
+def test_consumption_of_a_period_no_longer_followed_is_dropped_from_storage() -> None:
+    ledger = Ledger(site(Item("energy", "energy", KIND_CONSTANT, price=2)))
+    readings(ledger, (at(2026, 11, 25, 12), 100), (at(2026, 11, 25, 12, 30), 101))
+    fewer = Ledger(Site(consumption_entity=METER, periods=("day",), elements=ledger.site.elements, items=ledger.site.items))
+    fewer.load(ledger.dump(), ["energy"])
+    assert fewer.used == pytest.approx({"day": 1})

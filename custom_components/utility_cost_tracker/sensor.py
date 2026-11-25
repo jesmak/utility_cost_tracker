@@ -12,7 +12,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import UtilityCostConfigEntry
-from .const import CONF_HUNDREDTH_SYMBOL, CONF_PRICE_UNIT, CONF_UNIT, CONF_UTILITY, DEFAULT_HUNDREDTH_SYMBOL, DOMAIN, ICONS
+from .const import CONF_UTILITY, DOMAIN, ICONS
 from .tariff import KIND_FIXED_FEE, covers
 from .tracker import Tracker
 
@@ -132,25 +132,15 @@ class PriceSensor(TrackerSensor):
     def __init__(self, tracker: Tracker, key: str, ref: str) -> None:
         super().__init__(tracker, key)
         self._ref = ref
-        self._hundredths = tracker.entry.data.get(CONF_PRICE_UNIT) == "hundredths"
 
     @property
     def native_unit_of_measurement(self) -> str:
-        """The price unit per the meter's unit, read from the meter as it is now, or as it was when the site was saved."""
-        tracker = self._tracker
-        state = tracker.hass.states.get(tracker.site.consumption_entity)
-        unit = (state.attributes.get("unit_of_measurement") if state else None) or tracker.entry.data.get(CONF_UNIT)
-        if self._hundredths:
-            money = tracker.entry.data.get(CONF_HUNDREDTH_SYMBOL) or DEFAULT_HUNDREDTH_SYMBOL
-        else:
-            money = tracker.hass.config.currency
-        return f"{money}/{unit}" if unit else money
+        return self._tracker.price_unit()
 
     @property
     def native_value(self) -> float | None:
         """The price in the unit the site's prices are typed in."""
-        price = self._tracker.current_prices().get(self._ref)
-        return None if price is None else price * 100 if self._hundredths else price
+        return self._tracker.shown_prices().get(self._ref)
 
 
 class SitePrice(PriceSensor):

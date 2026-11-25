@@ -159,6 +159,16 @@ class Totals:
     total: float
 
 
+@dataclass(frozen=True)
+class HourSums:
+    """What a site had counted in all by the end of an hour: each item before tax, its tax, and the consumption."""
+
+    start: datetime
+    amounts: dict[str, float]
+    taxes: dict[str, float]
+    consumed: float
+
+
 @dataclass
 class Ledger:
     """The running totals of one site, and what it needs to remember to continue them after a restart."""
@@ -170,10 +180,32 @@ class Ledger:
     taxes: dict[str, dict[str, float]] = field(default_factory=dict)
     charged: dict[str, str] = field(default_factory=dict)
     prices: dict[str, float] = field(default_factory=dict)
+    # The site's own meter's consumption per followed period, in the meter's unit.
+    used: dict[str, float] = field(default_factory=dict)
+    # Running sums since the site was added, which never start over: the long-term statistics are written from them.
+    sums: dict[str, float] = field(default_factory=dict)
+    tax_sums: dict[str, float] = field(default_factory=dict)
+    consumed: float = 0.0
+    # The hour the running sums began in, which is where the site's history starts.
+    since: datetime | None = None
+    hour: datetime | None = None
+    # The hours that have ended since they were last collected. Not stored: a lost one only moves its amounts to the
+    # next hour's row, as the sums run on.
+    closed: list[HourSums] = field(default_factory=list)
 
     def roll(self, moment: datetime) -> bool:
         """Start new periods and charge the fees due at the moment. Returns whether anything changed."""
         changed = False
+        hour = period_start("hour", moment)
+        if self.since is None:
+            self.since = hour
+        if self.hour is None:
+            self.hour = hour
+        elif self.hour.astimezone(UTC) != hour.astimezone(UTC):
+            # Before the fees of a period that starts now, so they land in its first hour.
+            self.closed.append(HourSums(self.hour, dict(self.sums), dict(self.tax_sums), self.consumed))
+            self.hour = hour
+            changed = True
         for period in self.site.periods:
             start = period_start(period, moment)
             previous = self.starts.get(period)
@@ -183,6 +215,7 @@ class Ledger:
                 self.starts[period] = start
                 self.amounts[period] = {}
                 self.taxes[period] = {}
+                self.used[period] = 0.0
                 changed = True
         for item in self.site.items:
             if item.kind != KIND_FIXED_FEE:
@@ -191,10 +224,9 @@ class Ledger:
             if self.charged.get(item.item_id) == due:
                 continue
             self.charged[item.item_id] = due
-            amount = self.site.before_tax(item, item.price)
-            for period in self.site.periods:
-                if covers(period, item.fee_period):
-                    self._add(period, item, amount)
+            self._add(
+                item, self.site.before_tax(item, item.price), [period for period in self.site.periods if covers(period, item.fee_period)]
+            )
             changed = True
         return changed
 
@@ -210,6 +242,10 @@ class Ledger:
         if delta == 0:
             return False
         self.roll(moment)
+        if source == self.site.consumption_entity:
+            self.consumed += delta
+            for period in self.site.periods:
+                self.used[period] = self.used.get(period, 0.0) + delta
         changed = False
         for item in self.site.items:
             if item.kind not in UNIT_KINDS or self.site.source_of(item) != source or not self.site.applies(item, moment):
@@ -217,9 +253,7 @@ class Ledger:
             price = self.price_of(item, sensor_prices)
             if price is None:
                 continue
-            amount = delta * self.site.consumption_factor(item) * self.site.before_tax(item, price)
-            for period in self.site.periods:
-                self._add(period, item, amount)
+            self._add(item, delta * self.site.consumption_factor(item) * self.site.before_tax(item, price), self.site.periods)
             changed = True
         return changed
 
@@ -279,12 +313,16 @@ class Ledger:
         prices["total"] = None if None in values else sum(value for value in values if value is not None)
         return prices
 
-    def _add(self, period: str, item: Item, amount: float) -> None:
-        """Add an amount before tax, and the tax on it at the rate in force now."""
-        amounts = self.amounts.setdefault(period, {})
-        amounts[item.item_id] = amounts.get(item.item_id, 0.0) + amount
-        taxes = self.taxes.setdefault(period, {})
-        taxes[item.item_id] = taxes.get(item.item_id, 0.0) + amount * self.site.tax_rate(item)
+    def _add(self, item: Item, amount: float, periods: Iterable[str]) -> None:
+        """Add an amount before tax, and the tax on it at the rate in force now, to the periods and the running sums."""
+        tax = amount * self.site.tax_rate(item)
+        self.sums[item.item_id] = self.sums.get(item.item_id, 0.0) + amount
+        self.tax_sums[item.item_id] = self.tax_sums.get(item.item_id, 0.0) + tax
+        for period in periods:
+            amounts = self.amounts.setdefault(period, {})
+            amounts[item.item_id] = amounts.get(item.item_id, 0.0) + amount
+            taxes = self.taxes.setdefault(period, {})
+            taxes[item.item_id] = taxes.get(item.item_id, 0.0) + tax
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -294,6 +332,12 @@ class Ledger:
             "taxes": self.taxes,
             "charged": self.charged,
             "prices": self.prices,
+            "used": self.used,
+            "sums": self.sums,
+            "tax_sums": self.tax_sums,
+            "consumed": self.consumed,
+            "since": self.since.isoformat() if self.since else None,
+            "hour": self.hour.isoformat() if self.hour else None,
         }
 
     def load(self, data: dict[str, Any], known_items: Iterable[str]) -> None:
@@ -311,3 +355,9 @@ class Ledger:
         }
         self.charged = {item_id: due for item_id, due in data.get("charged", {}).items() if item_id in known}
         self.prices = {item_id: float(price) for item_id, price in data.get("prices", {}).items() if item_id in known}
+        self.used = {period: float(used) for period, used in data.get("used", {}).items() if period in self.site.periods}
+        self.sums = {item_id: float(amount) for item_id, amount in data.get("sums", {}).items() if item_id in known}
+        self.tax_sums = {item_id: float(tax) for item_id, tax in data.get("tax_sums", {}).items() if item_id in known}
+        self.consumed = float(data.get("consumed", 0.0))
+        self.since = datetime.fromisoformat(data["since"]) if data.get("since") else None
+        self.hour = datetime.fromisoformat(data["hour"]) if data.get("hour") else None

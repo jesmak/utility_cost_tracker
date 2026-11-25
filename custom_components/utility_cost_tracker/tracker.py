@@ -21,6 +21,7 @@ from .const import (
     CONF_END,
     CONF_FACTOR,
     CONF_FEE_PERIOD,
+    CONF_HUNDREDTH_SYMBOL,
     CONF_INCLUDES_TAX,
     CONF_KIND,
     CONF_MONTHS,
@@ -33,13 +34,16 @@ from .const import (
     CONF_TAX,
     CONF_TAXED,
     CONF_TIMING,
+    CONF_UNIT,
     CONF_WEEKDAYS,
     CONF_WINDOW,
+    DEFAULT_HUNDREDTH_SYMBOL,
     DOMAIN,
     STORAGE_VERSION,
     SUBENTRY_ELEMENT,
     SUBENTRY_ITEM,
 )
+from .history import async_write
 from .tariff import PERIODS, TIME_ALWAYS, Element, Item, Ledger, Site, Window
 
 _LOGGER = logging.getLogger(__name__)
@@ -133,7 +137,7 @@ class Tracker:
             value = number(self.hass.states.get(source))
             if value is not None:
                 self.ledger.read(source, value, dt_util.now(), self.sensor_price)
-        self._save()
+        self._changed()
         watched = self.site.sources() | {item.price_entity for item in self.site.items if item.price_entity}
         if watched:
             self._unsubscribe.append(async_track_state_change_event(self.hass, sorted(watched), self._state_changed))
@@ -155,6 +159,25 @@ class Tracker:
     def current_prices(self) -> dict[str, float | None]:
         return self.ledger.current_prices(dt_util.now(), self.sensor_price)
 
+    def shown_prices(self) -> dict[str, float | None]:
+        """The current prices in the unit the site's prices are typed in."""
+        scale = 100 if self.entry.data.get(CONF_PRICE_UNIT) == "hundredths" else 1
+        return {key: None if price is None else price * scale for key, price in self.current_prices().items()}
+
+    def meter_unit(self) -> str | None:
+        """The meter's unit as it is now, or as it was when the site was saved."""
+        state = self.hass.states.get(self.site.consumption_entity)
+        return (state.attributes.get("unit_of_measurement") if state else None) or self.entry.data.get(CONF_UNIT)
+
+    def price_unit(self) -> str:
+        """The unit of a price per unit: the currency or its hundredths, per the meter's unit."""
+        if self.entry.data.get(CONF_PRICE_UNIT) == "hundredths":
+            money = self.entry.data.get(CONF_HUNDREDTH_SYMBOL) or DEFAULT_HUNDREDTH_SYMBOL
+        else:
+            money = self.hass.config.currency
+        unit = self.meter_unit()
+        return f"{money}/{unit}" if unit else money
+
     @callback
     def async_add_listener(self, listener: Callable[[], None], clock: bool = False) -> CALLBACK_TYPE:
         """Call the listener when the totals change, and every minute too when it depends on the clock."""
@@ -170,19 +193,22 @@ class Tracker:
             if value is not None:
                 # Saved even when nothing was priced, as the reading is where the next change is counted from.
                 self.ledger.read(entity_id, value, dt_util.now(), self.sensor_price)
-                self._save()
+                self._changed()
         self._notify()
 
     @callback
     def _tick(self, moment: datetime) -> None:
         if self.ledger.roll(dt_util.as_local(moment)):
-            self._save()
+            self._changed()
             self._notify()
         else:
             for listener in list(self._clock_listeners):
                 listener()
 
-    def _save(self) -> None:
+    def _changed(self) -> None:
+        """Save the ledger, and write the hours that have ended into the long-term statistics."""
+        async_write(self.hass, self.entry, self.ledger.closed)
+        self.ledger.closed.clear()
         self._store.async_delay_save(self.ledger.dump, SAVE_DELAY)
 
     def _notify(self) -> None:

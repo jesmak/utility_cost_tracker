@@ -1,10 +1,16 @@
 {
   "domain": "utility_cost_tracker",
   "name": "Utility cost tracker",
+  "after_dependencies": [
+    "recorder"
+  ],
   "codeowners": [
     "@jesmak"
   ],
   "config_flow": true,
+  "dependencies": [
+    "websocket_api"
+  ],
   "documentation": "https://github.com/jesmak/utility_cost_tracker",
   "integration_type": "service",
   "iot_class": "calculated",

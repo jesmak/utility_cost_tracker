@@ -161,6 +161,23 @@ priced at the price in force when its reading arrives, which a spot price changi
 
 Consumption from while Home Assistant was down is priced as one reading when it is back, at the prices in force then.
 
+## Statistics
+
+Besides the sensors, the integration writes long-term statistics of its own for every item, whether or not the item's
+sensors are enabled. They are found by the site's name wherever Home Assistant offers statistics, such as the
+statistics graph card and Developer tools › Statistics.
+
+| Statistic          | What it holds                       |
+| ------------------ | ----------------------------------- |
+| _Site_ _Item_      | The item's cost before tax          |
+| _Site_ _Item_ tax  | The tax on the item                 |
+| _Site_ consumption | The consumption of the site's meter |
+
+Each is a running sum since the site was added, written once an hour for the hour that ended, so Home Assistant can
+show its change over any hour, day, week, month or year. They need the recorder, which Home Assistant has on by
+default. An item that is removed keeps its statistics, so earlier periods stay whole. Removing the site removes
+them all.
+
 ## Examples
 
 An electricity contract on the spot price in Finland, with day and night transfer. The site follows
@@ -216,6 +233,8 @@ python3.14 -m venv .venv
 | `custom_components/utility_cost_tracker/tariff.py`      | The bill's arithmetic, free of Home Assistant        |
 | `custom_components/utility_cost_tracker/tracker.py`     | A site's meters, clock and storage                   |
 | `custom_components/utility_cost_tracker/sensor.py`      | The cost and price sensors                           |
+| `custom_components/utility_cost_tracker/history.py`     | The long-term statistics of every item               |
+| `custom_components/utility_cost_tracker/websocket.py`   | A site as a card reads it                            |
 | `custom_components/utility_cost_tracker/config_flow.py` | The site, its cost elements and its items            |
 | `tests/`                                                | Tests, run with pytest and made-up meters and prices |
 
