@@ -1179,6 +1179,7 @@ var en_default = {
     show_usage: "Consumption as a line in the chart",
     show_share: "Share bar",
     show_bill: "Bill",
+    show_legend: "Legend, when the bill is off",
     tax: "Tax",
     tax_included: "In the prices",
     tax_separate: "On a row of its own",
@@ -1272,6 +1273,7 @@ var fi_default = {
     show_usage: "Kulutus viivana kaaviossa",
     show_share: "Osuuspalkki",
     show_bill: "Lasku",
+    show_legend: "Selite, kun lasku ei ole n\xE4kyviss\xE4",
     tax: "Verot",
     tax_included: "Hinnoissa",
     tax_separate: "Omalla rivill\xE4\xE4n",
@@ -1431,7 +1433,8 @@ var PARTS_SHOWN = {
   show_chart: true,
   show_usage: true,
   show_share: false,
-  show_bill: true
+  show_bill: true,
+  show_legend: true
 };
 function shows(config, part) {
   return config?.[part] ?? PARTS_SHOWN[part];
@@ -1457,7 +1460,8 @@ function schema(site, config, text) {
       schema: Object.keys(PARTS_SHOWN).map((name) => ({ name, selector: { boolean: {} } }))
     },
     select("tax", TAX_MODES, "editor.tax_"),
-    select("lines", LINES, "editor.lines_"),
+    // The bill's own setting, which a card without the bill has no use for.
+    ...shows(config, "show_bill") ? [select("lines", LINES, "editor.lines_")] : [],
     // Named by the site, so they are offered once the site has been read.
     ...site ? [
       {
@@ -1601,9 +1605,12 @@ var LABEL_HEIGHT = 18;
 var TOTAL_HEIGHT = 40;
 var CONSUMPTION_HEIGHT = 18;
 var ESTIMATE_HEIGHT = 118;
+var ESTIMATE_LINE_HEIGHT = 16;
 var SHARE_HEIGHT = 10;
 var CHART_HEIGHT = 120;
 var CHART_PART_HEIGHT = CHART_HEIGHT + 18 + 16;
+var CHART_LEAST_HEIGHT = 76;
+var LEGEND_HEIGHT = 20;
 var LIST_HEIGHT = 48;
 var UtilityCostCard = class extends i4 {
   constructor() {
@@ -1719,10 +1726,10 @@ var UtilityCostCard = class extends i4 {
             <ha-card class=${this.cardClass()} style=${this.cardStyle()}>
                 <div class="content">
                     ${full ? this.header(site, view, bill) : this.compact(site, view, bill)}
-                    ${full && shows(config, "show_estimate") ? this.estimate(site, view, bill) : A}
+                    ${full && shows(config, "show_estimate") && this.boxed() ? this.estimate(site, view, bill) : A}
                     ${shows(config, "show_share") ? this.share(site, bill) : A}
                     ${shows(config, "show_chart") ? this.chart(site, view, bill) : A}
-                    ${shows(config, "show_bill") ? this.bill(site, bill) : this.legend(site, bill)}
+                    ${shows(config, "show_bill") ? this.bill(site, bill) : shows(config, "show_legend") ? this.legend(site, bill) : A}
                 </div>
             </ha-card>
         `;
@@ -1837,6 +1844,7 @@ var UtilityCostCard = class extends i4 {
             <div class="part amount">
                 <div class="total">${this.money(site, bill.total)}</div>
                 ${shows(config, "show_consumption") ? b2`<div class="consumption">${this.consumption(site, view, bill)}</div>` : A}
+                ${shows(config, "show_estimate") && !this.boxed() ? this.estimateLine(site, view, bill) : A}
             </div>
         `;
   }
@@ -1906,6 +1914,20 @@ var UtilityCostCard = class extends i4 {
             ${row("card.previous_whole", this.money(site, guess.previous))}
         </div>`;
   }
+  /** The estimate as a line under the total, for a card held too low for the estimate's box. */
+  estimateLine(site, view, bill) {
+    if (!view.previous) {
+      return A;
+    }
+    const guess = this.estimated(site, view, bill);
+    if (guess) {
+      return b2`<div class="estimate-line">${this.text("card.estimate")} <b>${this.money(site, guess.total)}</b></div>`;
+    }
+    const previous = shown(site, view.previous, view.period, this.options()).total;
+    return b2`<div class="estimate-line">
+            ${this.text("card.previous")} <b>${this.money(site, previous)}</b> ${view.current ? A : this.change(bill.total, previous)}
+        </div>`;
+  }
   /** How much more or less `value` is than `against`, in percent. */
   change(value, against) {
     const percent = (value / against - 1) * 100;
@@ -1925,9 +1947,30 @@ var UtilityCostCard = class extends i4 {
     );
   }
   share(site, bill) {
-    const total = bill.segments.reduce((sum, segment) => sum + segment.value, 0) || 1;
-    return b2`<div class="part share" role="img" aria-label=${this.text("card.share")}>
-            ${this.segments(site, bill.segments, total, "width")}
+    const segments = bill.segments.filter((segment) => segment.value > 0);
+    const total = segments.reduce((sum, segment) => sum + segment.value, 0) || 1;
+    const side = (event) => {
+      if (event.pointerType === "touch") {
+        return;
+      }
+      const bar = event.currentTarget.getBoundingClientRect();
+      this.sharing = event.clientX - bar.left < bar.width / 2 ? "left" : "right";
+    };
+    return b2`<div class="part share" @pointermove=${side} @pointerleave=${() => this.sharing = void 0}>
+            <div class="share-bar" role="img" aria-label=${this.text("card.share")}>
+                ${this.segments(site, segments, total, "width", false)}
+            </div>
+            ${this.sharing ? b2`<div class="tip" style="${this.sharing}: 0" aria-hidden="true">
+                          ${segments.map(
+      (segment) => b2`<span
+                                      ><span><i class="dot" style="background: ${segment.color}"></i>${segment.name}</span
+                                      ><span
+                                          >${this.money(site, segment.value)} · ${this.number(segment.value / total * 100, 0)} %</span
+                                      ></span
+                                  >`
+    )}
+                          <span><span>${this.text("card.total")}</span><b>${this.money(site, bill.total)}</b></span>
+                      </div>` : A}
         </div>`;
   }
   chart(site, view, bill) {
@@ -2195,23 +2238,48 @@ var UtilityCostCard = class extends i4 {
   text(key) {
     return translate(this.language(), key);
   }
-  /** The height the parts need, from the settings alone. The bill and the legend count for the least they are held to. */
-  minimumHeight() {
+  /**
+   * The height the parts need, from the settings alone. The bill, the legend and the chart count for the least they are
+   * held to, and the estimate for a line under the total, unless `boxed` asks what the card needs with the estimate's box.
+   */
+  minimumHeight(boxed = false) {
     const config = this.config;
     const parts = [];
     if (shows(config, "show_periods") || shows(config, "show_earlier")) {
       parts.push(HEADER_HEIGHT);
       if (shows(config, "show_periods")) parts.push(PERIODS_HEIGHT);
       parts.push(shows(config, "show_earlier") ? EARLIER_HEIGHT : LABEL_HEIGHT);
-      parts.push(TOTAL_HEIGHT + (shows(config, "show_consumption") ? CONSUMPTION_HEIGHT : 0));
-      if (shows(config, "show_estimate")) parts.push(ESTIMATE_HEIGHT);
+      const estimate2 = shows(config, "show_estimate");
+      parts.push(
+        TOTAL_HEIGHT + (shows(config, "show_consumption") ? CONSUMPTION_HEIGHT : 0) + (estimate2 && !boxed ? ESTIMATE_LINE_HEIGHT : 0)
+      );
+      if (estimate2 && boxed) parts.push(ESTIMATE_HEIGHT);
     } else {
       parts.push(COMPACT_HEIGHT);
     }
     if (shows(config, "show_share")) parts.push(SHARE_HEIGHT);
-    if (shows(config, "show_chart")) parts.push(CHART_PART_HEIGHT);
-    if (shows(config, "show_bill") || shows(config, "show_share") || shows(config, "show_chart")) parts.push(LIST_HEIGHT);
+    if (shows(config, "show_chart")) parts.push(CHART_PART_HEIGHT - CHART_HEIGHT + CHART_LEAST_HEIGHT);
+    if (shows(config, "show_bill")) {
+      parts.push(LIST_HEIGHT);
+    } else if (shows(config, "show_legend") && (shows(config, "show_share") || shows(config, "show_chart"))) {
+      parts.push(LEGEND_HEIGHT);
+    }
     return 2 * PADDING + parts.reduce((sum, part) => sum + part, 0) + GAP * (parts.length - 1);
+  }
+  /** Whether the estimate is drawn as its box: when the height follows the content, or is held high enough for the box. */
+  boxed() {
+    const config = this.config ?? {};
+    const rows = config.grid_options ? config.grid_options.rows : config.layout_options?.grid_rows;
+    const mode = heightMode(config);
+    let room;
+    if (this.layout === "grid" && typeof rows === "number") {
+      room = Math.max(rows, gridMinRows(this.minimumHeight())) * ROW_PX - (ROW_PX - 56);
+    } else if (mode === "fixed" && config.height) {
+      room = config.height;
+    } else if (mode === "max" && config.max_height) {
+      room = config.max_height;
+    }
+    return room === void 0 || room >= this.minimumHeight(true);
   }
   /** Whether the card's height is set from outside: a fixed height, a limit, or rows set in the layout tab. */
   held() {
@@ -2237,7 +2305,7 @@ var UtilityCostCard = class extends i4 {
     const parts = [...content.children];
     const style = getComputedStyle(card);
     const needed = parts.reduce(
-      (sum, part) => sum + (part.classList.contains("list") ? part.scrollHeight : part.getBoundingClientRect().height / scale2),
+      (sum, part) => sum + (part.classList.contains("list") ? part.scrollHeight : part.classList.contains("chart") ? CHART_PART_HEIGHT : part.getBoundingClientRect().height / scale2),
       0
     ) + GAP * (parts.length - 1) + 2 * PADDING + px(style.borderTopWidth) + px(style.borderBottomWidth);
     const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
@@ -2295,8 +2363,23 @@ var UtilityCostCard = class extends i4 {
                 .topped .part {
                     margin-top: 0;
                 }
+                /* With a chart, the spare room is the chart's, and the other parts keep their gaps. */
+                .content:has(.chart) .part {
+                    margin-top: 0;
+                }
+                .chart {
+                    flex: 1 1 auto;
+                    display: flex;
+                    flex-direction: column;
+                    /* Set, as a flex item's own least height is its content's, which would keep the bars from giving way. */
+                    min-height: ${CHART_PART_HEIGHT - CHART_HEIGHT + CHART_LEAST_HEIGHT}px;
+                }
+                .chart > * {
+                    flex: none;
+                }
+                /* A card held low scrolls its bill or legend first, and only then draws its bars lower. */
                 .held .list {
-                    flex: 0 1 auto;
+                    flex: 0 1000 auto;
                     min-height: ${LIST_HEIGHT}px;
                     overflow-y: auto;
                     scrollbar-width: thin;
@@ -2431,6 +2514,18 @@ var UtilityCostCard = class extends i4 {
                     font-size: 12.5px;
                     color: var(--secondary-text-color);
                 }
+                .estimate-line {
+                    height: ${ESTIMATE_LINE_HEIGHT}px;
+                    line-height: ${ESTIMATE_LINE_HEIGHT}px;
+                    font-size: 12.5px;
+                    color: var(--secondary-text-color);
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .estimate-line b {
+                    color: var(--primary-text-color);
+                }
                 .compact {
                     display: flex;
                     align-items: center;
@@ -2519,22 +2614,34 @@ var UtilityCostCard = class extends i4 {
                     color: var(--success-color, #43a047);
                 }
                 .share {
+                    position: relative;
+                }
+                .share .tip {
+                    top: ${SHARE_HEIGHT + 4}px;
+                }
+                .share-bar {
                     display: flex;
                     height: ${SHARE_HEIGHT}px;
                     border-radius: 5px;
                     overflow: hidden;
                     background: var(--divider-color);
                 }
-                .share i {
+                .share-bar i {
                     display: block;
                     height: 100%;
                 }
                 .chart {
                     --scale: 32px;
                 }
+                .held .legend {
+                    min-height: ${LEGEND_HEIGHT}px;
+                }
+                .chart > .plot {
+                    flex: 1 1 ${CHART_HEIGHT}px;
+                    min-height: ${CHART_LEAST_HEIGHT}px;
+                }
                 .plot {
                     display: flex;
-                    height: ${CHART_HEIGHT}px;
                     /* Room for the scales' units, and for the top step's number. */
                     padding-top: 14px;
                     box-sizing: border-box;
@@ -2801,6 +2908,9 @@ __decorateClass([
 __decorateClass([
   r5()
 ], UtilityCostCard.prototype, "offset", 2);
+__decorateClass([
+  r5()
+], UtilityCostCard.prototype, "sharing", 2);
 __decorateClass([
   r5()
 ], UtilityCostCard.prototype, "hovered", 2);

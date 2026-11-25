@@ -18,7 +18,8 @@ import type { Column, View } from "./data";
 import "./editor";
 import { ScrollFade, fadeStyles, scrollIndicator, validScrollIndicator } from "./fade";
 import type { HomeAssistant } from "./hass";
-import { gridMinRows, heightCardSize, heightStyle, validHeight } from "./height";
+import { gridMinRows, heightCardSize, heightMode, heightStyle, validHeight } from "./height";
+import type { HeightConfig } from "./height";
 import { browserLanguage, translate } from "./localize/localize";
 import { PARTS, PERIODS, periodStart, weekNumber } from "./periods";
 import type { Period } from "./periods";
@@ -57,9 +58,13 @@ const LABEL_HEIGHT = 18;
 const TOTAL_HEIGHT = 40;
 const CONSUMPTION_HEIGHT = 18;
 const ESTIMATE_HEIGHT = 118;
+const ESTIMATE_LINE_HEIGHT = 16;
 const SHARE_HEIGHT = 10;
 const CHART_HEIGHT = 120;
 const CHART_PART_HEIGHT = CHART_HEIGHT + 18 + 16;
+/** The least a held card's bars are drawn in, which still has room for a scale of four steps. */
+const CHART_LEAST_HEIGHT = 76;
+const LEGEND_HEIGHT = 20;
 // The least of the bill or the legend that stays in view when the card is held lower than them.
 const LIST_HEIGHT = 48;
 
@@ -75,6 +80,8 @@ export class UtilityCostCard extends LitElement {
     @state() private picked?: Period;
     /** How many periods back from the current one. */
     @state() private offset = 0;
+    /** The half of the share bar the pointer is over, which its numbers are shown under. */
+    @state() private sharing?: "left" | "right";
     /** The bar the pointer is over, by its place from the left. */
     @state() private hovered?: number;
     @state() private filled = 0;
@@ -206,10 +213,10 @@ export class UtilityCostCard extends LitElement {
             <ha-card class=${this.cardClass()} style=${this.cardStyle()}>
                 <div class="content">
                     ${full ? this.header(site, view, bill) : this.compact(site, view, bill)}
-                    ${full && shows(config, "show_estimate") ? this.estimate(site, view, bill) : nothing}
+                    ${full && shows(config, "show_estimate") && this.boxed() ? this.estimate(site, view, bill) : nothing}
                     ${shows(config, "show_share") ? this.share(site, bill) : nothing}
                     ${shows(config, "show_chart") ? this.chart(site, view, bill) : nothing}
-                    ${shows(config, "show_bill") ? this.bill(site, bill) : this.legend(site, bill)}
+                    ${shows(config, "show_bill") ? this.bill(site, bill) : shows(config, "show_legend") ? this.legend(site, bill) : nothing}
                 </div>
             </ha-card>
         `;
@@ -347,6 +354,7 @@ export class UtilityCostCard extends LitElement {
             <div class="part amount">
                 <div class="total">${this.money(site, bill.total)}</div>
                 ${shows(config, "show_consumption") ? html`<div class="consumption">${this.consumption(site, view, bill)}</div>` : nothing}
+                ${shows(config, "show_estimate") && !this.boxed() ? this.estimateLine(site, view, bill) : nothing}
             </div>
         `;
     }
@@ -431,6 +439,21 @@ export class UtilityCostCard extends LitElement {
         </div>`;
     }
 
+    /** The estimate as a line under the total, for a card held too low for the estimate's box. */
+    private estimateLine(site: Site, view: View, bill: Shown): TemplateResult | typeof nothing {
+        if (!view.previous) {
+            return nothing;
+        }
+        const guess = this.estimated(site, view, bill);
+        if (guess) {
+            return html`<div class="estimate-line">${this.text("card.estimate")} <b>${this.money(site, guess.total)}</b></div>`;
+        }
+        const previous = shown(site, view.previous, view.period, this.options()).total;
+        return html`<div class="estimate-line">
+            ${this.text("card.previous")} <b>${this.money(site, previous)}</b> ${view.current ? nothing : this.change(bill.total, previous)}
+        </div>`;
+    }
+
     /** How much more or less `value` is than `against`, in percent. */
     private change(value: number, against: number): TemplateResult {
         const percent = (value / against - 1) * 100;
@@ -455,9 +478,35 @@ export class UtilityCostCard extends LitElement {
     }
 
     private share(site: Site, bill: Shown): TemplateResult {
-        const total = bill.segments.reduce((sum, segment) => sum + segment.value, 0) || 1;
-        return html`<div class="part share" role="img" aria-label=${this.text("card.share")}>
-            ${this.segments(site, bill.segments, total, "width")}
+        const segments = bill.segments.filter((segment) => segment.value > 0);
+        const total = segments.reduce((sum, segment) => sum + segment.value, 0) || 1;
+        const side = (event: PointerEvent) => {
+            if (event.pointerType === "touch") {
+                return;
+            }
+            const bar = (event.currentTarget as HTMLElement).getBoundingClientRect();
+            this.sharing = event.clientX - bar.left < bar.width / 2 ? "left" : "right";
+        };
+        return html`<div class="part share" @pointermove=${side} @pointerleave=${() => (this.sharing = undefined)}>
+            <div class="share-bar" role="img" aria-label=${this.text("card.share")}>
+                ${this.segments(site, segments, total, "width", false)}
+            </div>
+            ${
+                this.sharing
+                    ? html`<div class="tip" style="${this.sharing}: 0" aria-hidden="true">
+                          ${segments.map(
+                              (segment) =>
+                                  html`<span
+                                      ><span><i class="dot" style="background: ${segment.color}"></i>${segment.name}</span
+                                      ><span
+                                          >${this.money(site, segment.value)} · ${this.number((segment.value / total) * 100, 0)} %</span
+                                      ></span
+                                  >`,
+                          )}
+                          <span><span>${this.text("card.total")}</span><b>${this.money(site, bill.total)}</b></span>
+                      </div>`
+                    : nothing
+            }
         </div>`;
     }
 
@@ -800,24 +849,53 @@ export class UtilityCostCard extends LitElement {
         return translate(this.language(), key);
     }
 
-    /** The height the parts need, from the settings alone. The bill and the legend count for the least they are held to. */
-    private minimumHeight(): number {
+    /**
+     * The height the parts need, from the settings alone. The bill, the legend and the chart count for the least they are
+     * held to, and the estimate for a line under the total, unless `boxed` asks what the card needs with the estimate's box.
+     */
+    private minimumHeight(boxed = false): number {
         const config = this.config;
         const parts: number[] = [];
         if (shows(config, "show_periods") || shows(config, "show_earlier")) {
             parts.push(HEADER_HEIGHT);
             if (shows(config, "show_periods")) parts.push(PERIODS_HEIGHT);
             parts.push(shows(config, "show_earlier") ? EARLIER_HEIGHT : LABEL_HEIGHT);
-            parts.push(TOTAL_HEIGHT + (shows(config, "show_consumption") ? CONSUMPTION_HEIGHT : 0));
+            const estimate = shows(config, "show_estimate");
+            parts.push(
+                TOTAL_HEIGHT +
+                    (shows(config, "show_consumption") ? CONSUMPTION_HEIGHT : 0) +
+                    (estimate && !boxed ? ESTIMATE_LINE_HEIGHT : 0),
+            );
             // The estimate's box, which is lower as a comparison alone and missing without a previous period.
-            if (shows(config, "show_estimate")) parts.push(ESTIMATE_HEIGHT);
+            if (estimate && boxed) parts.push(ESTIMATE_HEIGHT);
         } else {
             parts.push(COMPACT_HEIGHT);
         }
         if (shows(config, "show_share")) parts.push(SHARE_HEIGHT);
-        if (shows(config, "show_chart")) parts.push(CHART_PART_HEIGHT);
-        if (shows(config, "show_bill") || shows(config, "show_share") || shows(config, "show_chart")) parts.push(LIST_HEIGHT);
+        if (shows(config, "show_chart")) parts.push(CHART_PART_HEIGHT - CHART_HEIGHT + CHART_LEAST_HEIGHT);
+        if (shows(config, "show_bill")) {
+            parts.push(LIST_HEIGHT);
+        } else if (shows(config, "show_legend") && (shows(config, "show_share") || shows(config, "show_chart"))) {
+            parts.push(LEGEND_HEIGHT);
+        }
         return 2 * PADDING + parts.reduce((sum, part) => sum + part, 0) + GAP * (parts.length - 1);
+    }
+
+    /** Whether the estimate is drawn as its box: when the height follows the content, or is held high enough for the box. */
+    private boxed(): boolean {
+        const config: HeightConfig = this.config ?? {};
+        const rows = config.grid_options ? config.grid_options.rows : config.layout_options?.grid_rows;
+        const mode = heightMode(config);
+        let room: number | undefined;
+        if (this.layout === "grid" && typeof rows === "number") {
+            // Home Assistant never gives fewer rows than the card's least.
+            room = Math.max(rows, gridMinRows(this.minimumHeight())) * ROW_PX - (ROW_PX - 56);
+        } else if (mode === "fixed" && config.height) {
+            room = config.height;
+        } else if (mode === "max" && config.max_height) {
+            room = config.max_height;
+        }
+        return room === undefined || room >= this.minimumHeight(true);
     }
 
     /** Whether the card's height is set from outside: a fixed height, a limit, or rows set in the layout tab. */
@@ -844,13 +922,19 @@ export class UtilityCostCard extends LitElement {
         }
         // The parts' own heights, not where the last one ends, as the spread room pushes it down to the card's bottom.
         // Drawn sizes are unscaled, as the padding and border added to them are the layout's. A list that scrolls counts
-        // for all of its content.
+        // for all of its content, and the chart for its own height, as it takes the spare room and gives way when held.
         const scale = drawnScale(card);
         const parts = [...content.children] as HTMLElement[];
         const style = getComputedStyle(card);
         const needed =
             parts.reduce(
-                (sum, part) => sum + (part.classList.contains("list") ? part.scrollHeight : part.getBoundingClientRect().height / scale),
+                (sum, part) =>
+                    sum +
+                    (part.classList.contains("list")
+                        ? part.scrollHeight
+                        : part.classList.contains("chart")
+                          ? CHART_PART_HEIGHT
+                          : part.getBoundingClientRect().height / scale),
                 0,
             ) +
             GAP * (parts.length - 1) +
@@ -915,8 +999,23 @@ export class UtilityCostCard extends LitElement {
                 .topped .part {
                     margin-top: 0;
                 }
+                /* With a chart, the spare room is the chart's, and the other parts keep their gaps. */
+                .content:has(.chart) .part {
+                    margin-top: 0;
+                }
+                .chart {
+                    flex: 1 1 auto;
+                    display: flex;
+                    flex-direction: column;
+                    /* Set, as a flex item's own least height is its content's, which would keep the bars from giving way. */
+                    min-height: ${CHART_PART_HEIGHT - CHART_HEIGHT + CHART_LEAST_HEIGHT}px;
+                }
+                .chart > * {
+                    flex: none;
+                }
+                /* A card held low scrolls its bill or legend first, and only then draws its bars lower. */
                 .held .list {
-                    flex: 0 1 auto;
+                    flex: 0 1000 auto;
                     min-height: ${LIST_HEIGHT}px;
                     overflow-y: auto;
                     scrollbar-width: thin;
@@ -1051,6 +1150,18 @@ export class UtilityCostCard extends LitElement {
                     font-size: 12.5px;
                     color: var(--secondary-text-color);
                 }
+                .estimate-line {
+                    height: ${ESTIMATE_LINE_HEIGHT}px;
+                    line-height: ${ESTIMATE_LINE_HEIGHT}px;
+                    font-size: 12.5px;
+                    color: var(--secondary-text-color);
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .estimate-line b {
+                    color: var(--primary-text-color);
+                }
                 .compact {
                     display: flex;
                     align-items: center;
@@ -1139,22 +1250,34 @@ export class UtilityCostCard extends LitElement {
                     color: var(--success-color, #43a047);
                 }
                 .share {
+                    position: relative;
+                }
+                .share .tip {
+                    top: ${SHARE_HEIGHT + 4}px;
+                }
+                .share-bar {
                     display: flex;
                     height: ${SHARE_HEIGHT}px;
                     border-radius: 5px;
                     overflow: hidden;
                     background: var(--divider-color);
                 }
-                .share i {
+                .share-bar i {
                     display: block;
                     height: 100%;
                 }
                 .chart {
                     --scale: 32px;
                 }
+                .held .legend {
+                    min-height: ${LEGEND_HEIGHT}px;
+                }
+                .chart > .plot {
+                    flex: 1 1 ${CHART_HEIGHT}px;
+                    min-height: ${CHART_LEAST_HEIGHT}px;
+                }
                 .plot {
                     display: flex;
-                    height: ${CHART_HEIGHT}px;
                     /* Room for the scales' units, and for the top step's number. */
                     padding-top: 14px;
                     box-sizing: border-box;

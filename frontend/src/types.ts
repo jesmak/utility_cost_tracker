@@ -22,6 +22,7 @@ export const PARTS_SHOWN = {
     show_usage: true,
     show_share: false,
     show_bill: true,
+    show_legend: true,
 } as const;
 export type Part = keyof typeof PARTS_SHOWN;
 

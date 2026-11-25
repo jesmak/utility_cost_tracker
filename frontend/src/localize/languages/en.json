@@ -66,6 +66,7 @@
         "show_usage": "Consumption as a line in the chart",
         "show_share": "Share bar",
         "show_bill": "Bill",
+        "show_legend": "Legend, when the bill is off",
         "tax": "Tax",
         "tax_included": "In the prices",
         "tax_separate": "On a row of its own",

@@ -192,6 +192,61 @@ describe("the card", () => {
         expect(text(element, ".total")).toBe("€5.00");
     });
 
+    it("tells each share under the pointer on the share bar, and has no legend when that is switched off", async () => {
+        const element = await card({ show_estimate: false, show_chart: false, show_bill: false, show_share: true, tax: "none" });
+        expect(all(element, ".legend")).toHaveLength(1);
+        const bar = all(element, ".share")[0];
+        bar.getBoundingClientRect = () => ({ left: 0, width: 300 }) as DOMRect;
+        bar.dispatchEvent(new MouseEvent("pointermove", { clientX: 200 }));
+        await settled(element);
+        expect(all(element, ".share .tip")[0].getAttribute("style")).toBe("right: 0");
+        expect(rows(element, ".share .tip > span")).toEqual(["Energy €62.00 · 67 %", "Transfer €30.00 · 33 %", "Total €92.00"]);
+        bar.dispatchEvent(new MouseEvent("pointerleave"));
+        await settled(element);
+        expect(all(element, ".share .tip")).toHaveLength(0);
+
+        const bare = await card({ show_estimate: false, show_chart: false, show_bill: false, show_share: true, show_legend: false });
+        expect(all(bare, ".legend")).toHaveLength(0);
+        expect(bare.getGridOptions().min_rows).toBeLessThan(element.getGridOptions().min_rows as number);
+    });
+
+    it("has the estimate as a line under the total when held too low for its box, and counts its least height with the line", async () => {
+        // The month before is whole in the history, and cost 30 an item.
+        const answers = {
+            ...hass(),
+            callWS: async <T>(message: Record<string, unknown>) =>
+                (message.type === "utility_cost_tracker/site"
+                    ? site()
+                    : {
+                          "utility_cost_tracker:home_spot_cost": [
+                              {
+                                  start: Date.parse(message.start_time as string),
+                                  end: Date.parse(message.start_time as string) + 1,
+                                  change: 30,
+                              },
+                          ],
+                      }) as T,
+        };
+        const held = async (rows: number) => {
+            const element = document.createElement("utility-cost-card") as UtilityCostCard;
+            element.setConfig({ type: "custom:utility-cost-card", site: "home", show_bill: false, grid_options: { rows } } as never);
+            element.layout = "grid";
+            element.hass = answers;
+            document.body.append(element);
+            await settled(element);
+            return element;
+        };
+        const low = await held(7);
+        expect(low.getGridOptions().min_rows).toBe(7);
+        expect(all(low, ".estimate")).toHaveLength(0);
+        expect(text(low, ".estimate-line")).toMatch(/^Estimate for the whole period €/);
+        const high = await held(8);
+        expect(all(high, ".estimate")).toHaveLength(1);
+        expect(all(high, ".estimate-line")).toHaveLength(0);
+        // A card whose height follows its content has the box.
+        expect(all(await card({ show_bill: false }, answers), ".estimate")).toHaveLength(1);
+    });
+
     it("tells what a bar holds under the pointer, and opens the bar's own period when it is pressed", async () => {
         const element = await card({ show_estimate: false });
         const plot = all(element, ".bars")[0];

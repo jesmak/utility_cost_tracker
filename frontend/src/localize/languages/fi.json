@@ -66,6 +66,7 @@
         "show_usage": "Kulutus viivana kaaviossa",
         "show_share": "Osuuspalkki",
         "show_bill": "Lasku",
+        "show_legend": "Selite, kun lasku ei ole näkyvissä",
         "tax": "Verot",
         "tax_included": "Hinnoissa",
         "tax_separate": "Omalla rivillään",

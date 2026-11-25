@@ -13,7 +13,7 @@ import type { HomeAssistant } from "./hass";
 import { browserLanguage, translate } from "./localize/localize";
 import { PERIODS } from "./periods";
 import { rowStepData, rowStepSchema, tidyRowStep } from "./rows";
-import { LINES, PARTS_SHOWN, TAX_MODES } from "./types";
+import { LINES, PARTS_SHOWN, TAX_MODES, shows } from "./types";
 import type { Site, UtilityCostCardConfig } from "./types";
 
 interface SchemaEntry {
@@ -40,7 +40,8 @@ function schema(site: Site | undefined, config: UtilityCostCardConfig, text: (ke
             schema: Object.keys(PARTS_SHOWN).map((name) => ({ name, selector: { boolean: {} } })),
         },
         select("tax", TAX_MODES, "editor.tax_"),
-        select("lines", LINES, "editor.lines_"),
+        // The bill's own setting, which a card without the bill has no use for.
+        ...(shows(config, "show_bill") ? [select("lines", LINES, "editor.lines_")] : []),
         // Named by the site, so they are offered once the site has been read.
         ...(site
             ? [
