@@ -18,8 +18,8 @@ from .tracker import Tracker
 
 ELEMENT_VALUES = ("usage", "usage_with_tax", "tax", "total")
 SITE_VALUES = ("tax", "total")
-# The breakdowns of an element and the site's tax start disabled, so a site doesn't begin with a sensor for everything.
-# Their totals are counted all the same, so one enabled later shows its period so far.
+# Only the totals of the site and of each element start enabled, so a site doesn't begin with a sensor for everything.
+# The items, the breakdowns and the prices are counted all the same, so one enabled later shows its period so far.
 ENABLED_BY_DEFAULT = ("total",)
 
 
@@ -113,6 +113,7 @@ class ItemCost(CostSensor):
     def __init__(self, tracker: Tracker, subentry: ConfigSubentry, period: str) -> None:
         super().__init__(tracker, subentry.subentry_id, period)
         self._item_id = subentry.subentry_id
+        self._attr_entity_registry_enabled_default = False
         self._attr_translation_key = f"item_{period}"
         self._attr_translation_placeholders = {"name": subentry.title}
 
@@ -124,6 +125,7 @@ class ItemCost(CostSensor):
 class PriceSensor(TrackerSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 4
+    _attr_entity_registry_enabled_default = False
     # A time window's price starts and ends with the clock.
     _clock = True
 

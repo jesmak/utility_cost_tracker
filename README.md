@@ -125,18 +125,19 @@ or c/kWh when prices are typed in hundredths.
 
 | Sensor                           | What it shows                                                          | Enabled |
 | -------------------------------- | ---------------------------------------------------------------------- | ------- |
-| _Item_ today                     | The item's cost before tax                                             | yes     |
+| _Item_ today                     | The item's cost before tax                                             | no      |
 | _Element_ usage before tax today | The element's items priced per unit, before tax and without fixed fees | no      |
 | _Element_ usage with tax today   | The same with the tax                                                  | no      |
 | _Element_ tax today              | The element's tax, fixed fees included                                 | no      |
 | _Element_ total today            | All of the element's items, fixed fees included, with tax              | yes     |
 | Tax today                        | The site's taxes                                                       | no      |
 | Total today                      | The site's total                                                       | yes     |
-| _Element_ price now              | The element's price per unit of the site's meter now, with tax         | yes     |
-| Price now                        | The site's price per unit now, with tax                                | yes     |
+| _Element_ price now              | The element's price per unit of the site's meter now, with tax         | no      |
+| Price now                        | The site's price per unit now, with tax                                | no      |
 
-The sensors that start disabled are enabled on the device's page. Their costs are counted all the same, so a sensor
-enabled later shows its period so far, and its long-term statistics start from then.
+A site starts with only the totals enabled, its own and each element's, so it doesn't begin with a sensor for
+everything. The rest are enabled on the device's page, as many as you need. Their costs are counted all the same, so a
+sensor enabled later shows its period so far, and its long-term statistics start from then.
 
 A fixed fee is added in full at the start of its period, whatever the consumption. It shows only in the sensors of
 its own period and longer ones, so a monthly fee is in the month's and the year's totals but not in the week's, the
