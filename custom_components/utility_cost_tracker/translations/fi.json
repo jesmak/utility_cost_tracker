@@ -1,0 +1,324 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Utility cost tracker",
+        "description": "Kuluseurannan kohde, esimerkiksi kodin sähkö. Kun kohde on lisätty, avaa se ja lisää siihen kuluseurannan eri osat.",
+        "data": {
+          "name": "Nimi",
+          "utility": "Mitä seurataan",
+          "consumption_entity": "Mittari",
+          "factor": "Muuntokerroin",
+          "periods": "Jaksot",
+          "cents": "Hinnat sentteinä"
+        },
+        "data_description": {
+          "name": "Esimerkiksi Kodin sähkö.",
+          "utility": "Kohteelle tehdään valmiiksi tyypilliset kululajit, esimerkiksi sähkölle Energia ja Siirto. Voit muokata ja poistaa niitä myöhemmin.",
+          "consumption_entity": "Anturi, jossa on mittarin kokonaislukema, esimerkiksi ostettu sähkö kilowattitunteina tai kulutettu vesi kuutioina.",
+          "factor": "Mittarin lukema kerrotaan tällä ennen hinnoittelua. Jätä arvoksi 1, ellei lukemaa tarvitse muuntaa, kuten kaasua kuutioista kilowattitunneiksi.",
+          "periods": "Jokaisesta kulusta luodaan anturi jokaiselle valitulle jaksolle.",
+          "cents": "Hinnat kirjoitetaan sentteinä yksikköä kohden, esimerkiksi 2,267 c/kWh eikä 0,02267 €/kWh. Kustannukset ja hinnat näytetään silti euroina."
+        }
+      },
+      "reconfigure": {
+        "title": "Utility cost tracker",
+        "description": "Muutokset tulevat voimaan heti. Tähän asti lasketut summat säilyvät.",
+        "data": {
+          "utility": "Mitä seurataan",
+          "consumption_entity": "Mittari",
+          "factor": "Muuntokerroin",
+          "periods": "Jaksot",
+          "cents": "Hinnat sentteinä"
+        },
+        "data_description": {
+          "utility": "Määrää antureiden kuvakkeen.",
+          "consumption_entity": "Anturi, jossa on mittarin kokonaislukema, esimerkiksi ostettu sähkö kilowattitunteina tai kulutettu vesi kuutioina.",
+          "factor": "Mittarin lukema kerrotaan tällä ennen hinnoittelua. Jätä arvoksi 1, ellei lukemaa tarvitse muuntaa, kuten kaasua kuutioista kilowattitunneiksi.",
+          "periods": "Jokaisesta kulusta luodaan anturi jokaiselle valitulle jaksolle.",
+          "cents": "Hinnat kirjoitetaan sentteinä yksikköä kohden, esimerkiksi 2,267 c/kWh eikä 0,02267 €/kWh. Kustannukset ja hinnat näytetään silti euroina."
+        }
+      }
+    },
+    "error": {
+      "no_periods": "Valitse ainakin yksi jakso.",
+      "not_positive": "Kertoimen täytyy olla suurempi kuin nolla."
+    },
+    "abort": {
+      "reconfigure_successful": "Tallennettu."
+    }
+  },
+  "config_subentries": {
+    "element": {
+      "initiate_flow": {
+        "user": "Lisää kululaji",
+        "reconfigure": "Muokkaa kululajia"
+      },
+      "entry_type": "Kululaji",
+      "step": {
+        "user": {
+          "title": "Kululaji",
+          "description": "Laskun osa, jolla on oma verokanta, esimerkiksi Energia tai Siirto.",
+          "data": {
+            "name": "Nimi",
+            "tax": "Verokanta"
+          },
+          "data_description": {
+            "tax": "Esimerkiksi arvonlisävero. Jokaisen kulun kohdalla valitaan, lisätäänkö vero siihen. Jätä arvoksi 0, jos veroa ei ole."
+          }
+        },
+        "reconfigure": {
+          "title": "Muokkaa kululajia",
+          "description": "Muutokset tulevat voimaan heti.",
+          "data": {
+            "name": "Nimi",
+            "tax": "Verokanta"
+          },
+          "data_description": {
+            "tax": "Esimerkiksi arvonlisävero. Jokaisen kulun kohdalla valitaan, lisätäänkö vero siihen. Jätä arvoksi 0, jos veroa ei ole."
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Tallennettu."
+      }
+    },
+    "item": {
+      "initiate_flow": {
+        "user": "Lisää kulu",
+        "reconfigure": "Muokkaa kulua"
+      },
+      "entry_type": "Kulu",
+      "step": {
+        "user": {
+          "title": "Kulu",
+          "description": "Millainen kulu on kyseessä?",
+          "menu_options": {
+            "constant": "Kiinteä yksikköhinta",
+            "sensor": "Yksikköhinta Home Assistant anturista",
+            "fixed_fee": "Kiinteä maksu"
+          }
+        },
+        "constant": {
+          "title": "Kiinteä yksikköhinta",
+          "description": "Esimerkiksi myyjän marginaali, sähkövero, siirtohinta tai veden kuutiohinta.",
+          "data": {
+            "name": "Nimi",
+            "element": "Kululaji",
+            "price": "Yksikköhinta",
+            "taxed": "Verollinen",
+            "includes_tax": "Hinta sisältää veron",
+            "timing": "Milloin voimassa",
+            "consumption_entity": "Erillinen mittari",
+            "factor": "Muuntokerroin"
+          },
+          "data_description": {
+            "taxed": "Kululajin vero lisätään tähän kuluun.",
+            "includes_tax": "Valitse tämä, jos kirjoitat hinnan verollisena, niin kuin se lukee sopimuksessa tai laskussa.",
+            "timing": "Muina aikoina tarkoittaa hintaa, joka on voimassa aina, kun mikään kululajin aikarajatuista hinnoista ei ole. Esimerkiksi yösiirto päiväsiirron rinnalla.",
+            "consumption_entity": "Jätä tyhjäksi, niin käytetään kohteen mittaria. Valitse alamittari, esimerkiksi autolaturin, jos hinnoitellaan vain sen kulutus.",
+            "factor": "Kulutus kerrotaan tällä ennen hinnoittelua, esimerkiksi 0,9, jos jätevesi laskutetaan 90 prosentista vedestä. Muuten jätä arvoksi 1."
+          }
+        },
+        "sensor": {
+          "title": "Yksikköhinta anturista",
+          "description": "Esimerkiksi pörssisähkön hinta. Hinnaksi tulee anturin arvo kerrottuna kertoimella, ja siihen lisätään lisäys.",
+          "data": {
+            "name": "Nimi",
+            "element": "Kululaji",
+            "price_entity": "Hinta-anturi",
+            "multiplier": "Kerroin",
+            "addend": "Lisäys",
+            "taxed": "Verollinen",
+            "includes_tax": "Hinta sisältää veron",
+            "timing": "Milloin voimassa",
+            "consumption_entity": "Erillinen mittari",
+            "factor": "Muuntokerroin"
+          },
+          "data_description": {
+            "multiplier": "Muuntaa anturin arvon samaan yksikköön kuin muut hinnat, esimerkiksi 100, kun euroista kilowattitunnilta tehdään senttejä. Muuten jätä arvoksi 1.",
+            "addend": "Lisätään kertoimen jälkeen. Muuten jätä arvoksi 0.",
+            "taxed": "Kululajin vero lisätään tähän kuluun.",
+            "includes_tax": "Valitse tämä, jos anturin hinta ja lisäys sisältävät jo veron.",
+            "timing": "Muina aikoina tarkoittaa hintaa, joka on voimassa aina, kun mikään kululajin aikarajatuista hinnoista ei ole. Esimerkiksi yösiirto päiväsiirron rinnalla.",
+            "consumption_entity": "Jätä tyhjäksi, niin käytetään kohteen mittaria. Valitse alamittari, esimerkiksi autolaturin, jos hinnoitellaan vain sen kulutus.",
+            "factor": "Kulutus kerrotaan tällä ennen hinnoittelua. Muuten jätä arvoksi 1."
+          }
+        },
+        "fixed_fee": {
+          "title": "Kiinteä maksu",
+          "description": "Esimerkiksi kuukausittainen perusmaksu. Se lisätään kokonaan jokaisen jakson alussa kulutuksesta riippumatta, ja se näkyy sen jakson ja pidempien jaksojen antureissa.",
+          "data": {
+            "name": "Nimi",
+            "element": "Kululaji",
+            "price": "Summa",
+            "fee_period": "Veloitusjakso",
+            "taxed": "Verollinen",
+            "includes_tax": "Summa sisältää veron"
+          },
+          "data_description": {
+            "price": "Hyvitys merkitään negatiivisena.",
+            "taxed": "Kululajin vero lisätään tähän kuluun.",
+            "includes_tax": "Valitse tämä, jos kirjoitat summan verollisena, niin kuin se lukee sopimuksessa tai laskussa."
+          }
+        },
+        "window": {
+          "title": "Milloin voimassa",
+          "description": "Hinta on voimassa näiden kellonaikojen välillä valittuina päivinä ja kuukausina.",
+          "data": {
+            "start": "Alkaen",
+            "end": "Asti",
+            "weekdays": "Viikonpäivät",
+            "months": "Kuukaudet"
+          },
+          "data_description": {
+            "end": "Jos loppu on ennen alkua, aika jatkuu yli puolenyön, esimerkiksi 22.00–7.00. Sama aika molemmissa tarkoittaa koko vuorokautta.",
+            "weekdays": "Jätä tyhjäksi, niin kaikki päivät.",
+            "months": "Jätä tyhjäksi, niin kaikki kuukaudet."
+          }
+        },
+        "reconfigure": {
+          "title": "Muokkaa kulua",
+          "description": "Muutokset tulevat voimaan heti.",
+          "data": {
+            "name": "Nimi",
+            "element": "Kululaji",
+            "price": "Hinta",
+            "price_entity": "Hinta-anturi",
+            "multiplier": "Kerroin",
+            "addend": "Lisäys",
+            "fee_period": "Veloitusjakso",
+            "taxed": "Verollinen",
+            "includes_tax": "Hinta sisältää veron",
+            "timing": "Milloin voimassa",
+            "consumption_entity": "Erillinen mittari",
+            "factor": "Muuntokerroin"
+          },
+          "data_description": {
+            "includes_tax": "Valitse tämä, jos kirjoitat hinnan verollisena, niin kuin se lukee sopimuksessa tai laskussa.",
+            "timing": "Muina aikoina tarkoittaa hintaa, joka on voimassa aina, kun mikään kululajin aikarajatuista hinnoista ei ole.",
+            "consumption_entity": "Jätä tyhjäksi, niin käytetään kohteen mittaria."
+          }
+        }
+      },
+      "error": {
+        "includes_untaxed": "Hinta voi sisältää veron vain, jos kulu on verollinen."
+      },
+      "abort": {
+        "no_elements": "Lisää ensin kululaji. Jokainen kulu kuuluu johonkin kululajiin.",
+        "reconfigure_successful": "Tallennettu."
+      }
+    }
+  },
+  "selector": {
+    "utility": {
+      "options": {
+        "electricity": "Sähkö",
+        "water": "Vesi",
+        "gas": "Kaasu",
+        "other": "Jokin muu"
+      }
+    },
+    "default_element": {
+      "options": {
+        "energy": "Energia",
+        "transfer": "Siirto",
+        "water": "Vesi",
+        "wastewater": "Jätevesi",
+        "gas": "Kaasu",
+        "costs": "Kulut"
+      }
+    },
+    "timing": {
+      "options": {
+        "always": "Aina",
+        "window": "Tiettyinä aikoina",
+        "other_times": "Muina aikoina"
+      }
+    },
+    "period": {
+      "options": {
+        "hour": "Tunti",
+        "day": "Päivä",
+        "week": "Viikko",
+        "month": "Kuukausi",
+        "year": "Vuosi"
+      }
+    },
+    "fee_period": {
+      "options": {
+        "day": "Päivä",
+        "month": "Kuukausi",
+        "year": "Vuosi"
+      }
+    },
+    "weekday": {
+      "options": {
+        "0": "Maanantai",
+        "1": "Tiistai",
+        "2": "Keskiviikko",
+        "3": "Torstai",
+        "4": "Perjantai",
+        "5": "Lauantai",
+        "6": "Sunnuntai"
+      }
+    },
+    "month": {
+      "options": {
+        "1": "Tammikuu",
+        "2": "Helmikuu",
+        "3": "Maaliskuu",
+        "4": "Huhtikuu",
+        "5": "Toukokuu",
+        "6": "Kesäkuu",
+        "7": "Heinäkuu",
+        "8": "Elokuu",
+        "9": "Syyskuu",
+        "10": "Lokakuu",
+        "11": "Marraskuu",
+        "12": "Joulukuu"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "site_tax_hour": { "name": "Verot tällä tunnilla" },
+      "site_tax_day": { "name": "Verot tänään" },
+      "site_tax_week": { "name": "Verot tällä viikolla" },
+      "site_tax_month": { "name": "Verot tässä kuussa" },
+      "site_tax_year": { "name": "Verot tänä vuonna" },
+      "site_total_hour": { "name": "Yhteensä tällä tunnilla" },
+      "site_total_day": { "name": "Yhteensä tänään" },
+      "site_total_week": { "name": "Yhteensä tällä viikolla" },
+      "site_total_month": { "name": "Yhteensä tässä kuussa" },
+      "site_total_year": { "name": "Yhteensä tänä vuonna" },
+      "element_usage_hour": { "name": "{name}, kulutus ilman veroja tällä tunnilla" },
+      "element_usage_day": { "name": "{name}, kulutus ilman veroja tänään" },
+      "element_usage_week": { "name": "{name}, kulutus ilman veroja tällä viikolla" },
+      "element_usage_month": { "name": "{name}, kulutus ilman veroja tässä kuussa" },
+      "element_usage_year": { "name": "{name}, kulutus ilman veroja tänä vuonna" },
+      "element_usage_with_tax_hour": { "name": "{name}, kulutus veroineen tällä tunnilla" },
+      "element_usage_with_tax_day": { "name": "{name}, kulutus veroineen tänään" },
+      "element_usage_with_tax_week": { "name": "{name}, kulutus veroineen tällä viikolla" },
+      "element_usage_with_tax_month": { "name": "{name}, kulutus veroineen tässä kuussa" },
+      "element_usage_with_tax_year": { "name": "{name}, kulutus veroineen tänä vuonna" },
+      "element_tax_hour": { "name": "{name}, verot tällä tunnilla" },
+      "element_tax_day": { "name": "{name}, verot tänään" },
+      "element_tax_week": { "name": "{name}, verot tällä viikolla" },
+      "element_tax_month": { "name": "{name}, verot tässä kuussa" },
+      "element_tax_year": { "name": "{name}, verot tänä vuonna" },
+      "element_total_hour": { "name": "{name} yhteensä tällä tunnilla" },
+      "element_total_day": { "name": "{name} yhteensä tänään" },
+      "element_total_week": { "name": "{name} yhteensä tällä viikolla" },
+      "element_total_month": { "name": "{name} yhteensä tässä kuussa" },
+      "element_total_year": { "name": "{name} yhteensä tänä vuonna" },
+      "item_hour": { "name": "{name} tällä tunnilla" },
+      "item_day": { "name": "{name} tänään" },
+      "item_week": { "name": "{name} tällä viikolla" },
+      "item_month": { "name": "{name} tässä kuussa" },
+      "item_year": { "name": "{name} tänä vuonna" },
+      "site_price": { "name": "Hinta nyt" },
+      "element_price": { "name": "{name}, hinta nyt" }
+    }
+  }
+}

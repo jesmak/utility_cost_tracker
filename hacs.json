@@ -1,0 +1,7 @@
+{
+  "name": "Utility cost tracker",
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "utility_cost_tracker.zip",
+  "homeassistant": "2026.9.3"
+}

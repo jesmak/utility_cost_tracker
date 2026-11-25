@@ -1,0 +1,324 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Utility cost tracker",
+        "description": "A site is something you get one bill for, such as the electricity of your home. Once it's added, open it to add the prices and fees from the bill.",
+        "data": {
+          "name": "Name",
+          "utility": "Utility",
+          "consumption_entity": "Meter",
+          "factor": "Conversion factor",
+          "periods": "Periods",
+          "cents": "Enter prices in cents"
+        },
+        "data_description": {
+          "name": "Such as Home electricity.",
+          "utility": "The site gets the usual cost elements for it, such as Energy and Transfer for electricity. You can rename or remove them later.",
+          "consumption_entity": "The sensor with the meter's running total, such as the energy bought in kWh or the water used in m³.",
+          "factor": "The meter reading is multiplied by this before any price. Leave it at 1 unless the reading needs converting, such as gas from m³ to kWh.",
+          "periods": "Every cost gets a sensor for each period you choose.",
+          "cents": "Type prices in cents per unit, such as 2.267 c/kWh instead of 0.02267 €/kWh. Costs and prices are still shown in euros, or whatever your currency is."
+        }
+      },
+      "reconfigure": {
+        "title": "Utility cost tracker",
+        "description": "Changes take effect right away. What has been counted so far stays.",
+        "data": {
+          "utility": "Utility",
+          "consumption_entity": "Meter",
+          "factor": "Conversion factor",
+          "periods": "Periods",
+          "cents": "Enter prices in cents"
+        },
+        "data_description": {
+          "utility": "Sets the icon of the sensors.",
+          "consumption_entity": "The sensor with the meter's running total, such as the energy bought in kWh or the water used in m³.",
+          "factor": "The meter reading is multiplied by this before any price. Leave it at 1 unless the reading needs converting, such as gas from m³ to kWh.",
+          "periods": "Every cost gets a sensor for each period you choose.",
+          "cents": "Type prices in cents per unit, such as 2.267 c/kWh instead of 0.02267 €/kWh. Costs and prices are still shown in euros, or whatever your currency is."
+        }
+      }
+    },
+    "error": {
+      "no_periods": "Choose at least one period.",
+      "not_positive": "The factor has to be more than zero."
+    },
+    "abort": {
+      "reconfigure_successful": "Saved."
+    }
+  },
+  "config_subentries": {
+    "element": {
+      "initiate_flow": {
+        "user": "Add cost element",
+        "reconfigure": "Edit cost element"
+      },
+      "entry_type": "Cost element",
+      "step": {
+        "user": {
+          "title": "Cost element",
+          "description": "A part of the bill with its own tax rate, such as Energy or Transfer.",
+          "data": {
+            "name": "Name",
+            "tax": "Tax rate"
+          },
+          "data_description": {
+            "tax": "Such as value added tax. Each item says whether it's taxed. Leave it at 0 if there's no tax."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit cost element",
+          "description": "Changes take effect right away.",
+          "data": {
+            "name": "Name",
+            "tax": "Tax rate"
+          },
+          "data_description": {
+            "tax": "Such as value added tax. Each item says whether it's taxed. Leave it at 0 if there's no tax."
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Saved."
+      }
+    },
+    "item": {
+      "initiate_flow": {
+        "user": "Add item",
+        "reconfigure": "Edit item"
+      },
+      "entry_type": "Item",
+      "step": {
+        "user": {
+          "title": "Item",
+          "description": "What kind of cost is it?",
+          "menu_options": {
+            "constant": "Fixed price per unit",
+            "sensor": "Price per unit from a sensor",
+            "fixed_fee": "Fixed fee"
+          }
+        },
+        "constant": {
+          "title": "Fixed price per unit",
+          "description": "Such as the seller's margin, the electricity tax, a transfer price or water per m³.",
+          "data": {
+            "name": "Name",
+            "element": "Cost element",
+            "price": "Price per unit",
+            "taxed": "Taxed",
+            "includes_tax": "Price includes tax",
+            "timing": "When it applies",
+            "consumption_entity": "Separate meter",
+            "factor": "Conversion factor"
+          },
+          "data_description": {
+            "taxed": "The cost element's tax rate is added to this.",
+            "includes_tax": "Turn this on if you're typing the price with tax, the way your contract or bill shows it.",
+            "timing": "Choose at other times for a price that applies whenever none of the element's time-limited prices do, such as night transfer next to a day price.",
+            "consumption_entity": "Leave it empty to use the site's meter. Pick a sub-meter, such as a car charger's, to price only what it measures.",
+            "factor": "The consumption is multiplied by this before pricing, such as 0.9 if wastewater is billed on 90 % of the water. Otherwise leave it at 1."
+          }
+        },
+        "sensor": {
+          "title": "Price per unit from a sensor",
+          "description": "Such as a spot price. The price used is the sensor's value times the multiplier, plus the addition.",
+          "data": {
+            "name": "Name",
+            "element": "Cost element",
+            "price_entity": "Price sensor",
+            "multiplier": "Multiplier",
+            "addend": "Addition",
+            "taxed": "Taxed",
+            "includes_tax": "Price includes tax",
+            "timing": "When it applies",
+            "consumption_entity": "Separate meter",
+            "factor": "Conversion factor"
+          },
+          "data_description": {
+            "multiplier": "Converts the sensor's value to the unit you type prices in, such as 100 to turn €/kWh into c/kWh. Otherwise leave it at 1.",
+            "addend": "Added after the multiplier. Otherwise leave it at 0.",
+            "taxed": "The cost element's tax rate is added to this.",
+            "includes_tax": "Turn this on if the sensor's price, and the addition, already include tax.",
+            "timing": "Choose at other times for a price that applies whenever none of the element's time-limited prices do, such as night transfer next to a day price.",
+            "consumption_entity": "Leave it empty to use the site's meter. Pick a sub-meter, such as a car charger's, to price only what it measures.",
+            "factor": "The consumption is multiplied by this before pricing. Otherwise leave it at 1."
+          }
+        },
+        "fixed_fee": {
+          "title": "Fixed fee",
+          "description": "Such as a monthly basic fee. It's added in full at the start of each period, however much you use, and shows in the sensors of that period and longer ones.",
+          "data": {
+            "name": "Name",
+            "element": "Cost element",
+            "price": "Amount",
+            "fee_period": "Charged every",
+            "taxed": "Taxed",
+            "includes_tax": "Amount includes tax"
+          },
+          "data_description": {
+            "price": "Use a negative amount for a credit.",
+            "taxed": "The cost element's tax rate is added to this.",
+            "includes_tax": "Turn this on if you're typing the amount with tax, the way your contract or bill shows it."
+          }
+        },
+        "window": {
+          "title": "When it applies",
+          "description": "The price applies between these times, on the days and in the months you choose.",
+          "data": {
+            "start": "From",
+            "end": "Until",
+            "weekdays": "Weekdays",
+            "months": "Months"
+          },
+          "data_description": {
+            "end": "An end before the start runs over midnight, such as 22:00 to 07:00. The same time for both means all day.",
+            "weekdays": "Leave it empty for every day.",
+            "months": "Leave it empty for every month."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit item",
+          "description": "Changes take effect right away.",
+          "data": {
+            "name": "Name",
+            "element": "Cost element",
+            "price": "Price",
+            "price_entity": "Price sensor",
+            "multiplier": "Multiplier",
+            "addend": "Addition",
+            "fee_period": "Charged every",
+            "taxed": "Taxed",
+            "includes_tax": "Price includes tax",
+            "timing": "When it applies",
+            "consumption_entity": "Separate meter",
+            "factor": "Conversion factor"
+          },
+          "data_description": {
+            "includes_tax": "Turn this on if you're typing the price with tax, the way your contract or bill shows it.",
+            "timing": "Choose at other times for a price that applies whenever none of the element's time-limited prices do.",
+            "consumption_entity": "Leave it empty to use the site's meter."
+          }
+        }
+      },
+      "error": {
+        "includes_untaxed": "A price can only include tax if it's taxed."
+      },
+      "abort": {
+        "no_elements": "Add a cost element first. Every item belongs to one.",
+        "reconfigure_successful": "Saved."
+      }
+    }
+  },
+  "selector": {
+    "utility": {
+      "options": {
+        "electricity": "Electricity",
+        "water": "Water",
+        "gas": "Gas",
+        "other": "Something else"
+      }
+    },
+    "default_element": {
+      "options": {
+        "energy": "Energy",
+        "transfer": "Transfer",
+        "water": "Water",
+        "wastewater": "Wastewater",
+        "gas": "Gas",
+        "costs": "Costs"
+      }
+    },
+    "timing": {
+      "options": {
+        "always": "Always",
+        "window": "At set times",
+        "other_times": "At other times"
+      }
+    },
+    "period": {
+      "options": {
+        "hour": "Hour",
+        "day": "Day",
+        "week": "Week",
+        "month": "Month",
+        "year": "Year"
+      }
+    },
+    "fee_period": {
+      "options": {
+        "day": "Day",
+        "month": "Month",
+        "year": "Year"
+      }
+    },
+    "weekday": {
+      "options": {
+        "0": "Monday",
+        "1": "Tuesday",
+        "2": "Wednesday",
+        "3": "Thursday",
+        "4": "Friday",
+        "5": "Saturday",
+        "6": "Sunday"
+      }
+    },
+    "month": {
+      "options": {
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "site_tax_hour": { "name": "Tax this hour" },
+      "site_tax_day": { "name": "Tax today" },
+      "site_tax_week": { "name": "Tax this week" },
+      "site_tax_month": { "name": "Tax this month" },
+      "site_tax_year": { "name": "Tax this year" },
+      "site_total_hour": { "name": "Total this hour" },
+      "site_total_day": { "name": "Total today" },
+      "site_total_week": { "name": "Total this week" },
+      "site_total_month": { "name": "Total this month" },
+      "site_total_year": { "name": "Total this year" },
+      "element_usage_hour": { "name": "{name} usage before tax this hour" },
+      "element_usage_day": { "name": "{name} usage before tax today" },
+      "element_usage_week": { "name": "{name} usage before tax this week" },
+      "element_usage_month": { "name": "{name} usage before tax this month" },
+      "element_usage_year": { "name": "{name} usage before tax this year" },
+      "element_usage_with_tax_hour": { "name": "{name} usage with tax this hour" },
+      "element_usage_with_tax_day": { "name": "{name} usage with tax today" },
+      "element_usage_with_tax_week": { "name": "{name} usage with tax this week" },
+      "element_usage_with_tax_month": { "name": "{name} usage with tax this month" },
+      "element_usage_with_tax_year": { "name": "{name} usage with tax this year" },
+      "element_tax_hour": { "name": "{name} tax this hour" },
+      "element_tax_day": { "name": "{name} tax today" },
+      "element_tax_week": { "name": "{name} tax this week" },
+      "element_tax_month": { "name": "{name} tax this month" },
+      "element_tax_year": { "name": "{name} tax this year" },
+      "element_total_hour": { "name": "{name} total this hour" },
+      "element_total_day": { "name": "{name} total today" },
+      "element_total_week": { "name": "{name} total this week" },
+      "element_total_month": { "name": "{name} total this month" },
+      "element_total_year": { "name": "{name} total this year" },
+      "item_hour": { "name": "{name} this hour" },
+      "item_day": { "name": "{name} today" },
+      "item_week": { "name": "{name} this week" },
+      "item_month": { "name": "{name} this month" },
+      "item_year": { "name": "{name} this year" },
+      "site_price": { "name": "Price now" },
+      "element_price": { "name": "{name} price now" }
+    }
+  }
+}

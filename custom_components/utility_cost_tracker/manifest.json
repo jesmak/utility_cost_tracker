@@ -1,0 +1,14 @@
+{
+  "domain": "utility_cost_tracker",
+  "name": "Utility cost tracker",
+  "codeowners": [
+    "@jesmak"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/jesmak/utility_cost_tracker",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/jesmak/utility_cost_tracker/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
