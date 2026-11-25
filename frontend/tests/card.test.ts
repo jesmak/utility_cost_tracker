@@ -172,7 +172,7 @@ describe("the card", () => {
             callWS: async <T>(message: Record<string, unknown>) =>
                 (message.type === "utility_cost_tracker/site"
                     ? single()
-                    : (message.types as string[]).includes("sum")
+                    : message.period === "month"
                       ? {}
                       : {
                             old_cost: [

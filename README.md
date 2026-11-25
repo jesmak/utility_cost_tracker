@@ -259,9 +259,8 @@ A line over the bars follows the consumption, so a dear hour with little use sta
 It is drawn by what was used per hour, on a scale of its own on the right. For energy in
 kWh that is the power in kW. The line is finer than the bars where the history allows. A week's line goes by the hour.
 A day's goes by five minutes, from the meter's own statistics, which Home Assistant keeps that fine only for as long as
-it keeps its history, and only for a meter with a state class. Where little is used and the meter's
-steps would draw as a saw, the five minutes are joined into quarters of an hour or hours. Other days go by the hour. The line's colour is the text's, or
-the theme's `--utility-cost-usage-color`.
+it keeps its history, and only for a meter with a state class. Other days go by the hour. The line is see-through, so the bars show under it. Its
+colour is the text's, or the theme's `--utility-cost-usage-color`.
 
 ### Colours
 

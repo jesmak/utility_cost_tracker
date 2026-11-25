@@ -813,17 +813,13 @@ function averagePrice(site, bill, consumption) {
 var HOUR_MS2 = 36e5;
 var BUCKETS = { hour: "hour", day: "hour", week: "hour", month: "day", year: "day" };
 var FIVE_MINUTES_MS = 3e5;
-var STEPS_FOR_A_POINT = 8;
-var LEVEL_GAP = 0.05;
-var FINE_KINDS = 20;
-var JUDGED_FROM = 24;
 var StatisticsCache = class {
   constructor() {
     this.stamp = -1;
     this.asked = /* @__PURE__ */ new Map();
   }
   read(hass, now, ids, from, to, period, types) {
-    const stamp = Math.floor((now - STATISTICS_DELAY_MS) / HOUR_MS2);
+    const stamp = Math.floor(now / HOUR_MS2) * 2 + (now % HOUR_MS2 >= STATISTICS_DELAY_MS ? 1 : 0);
     if (stamp !== this.stamp) {
       this.stamp = stamp;
       this.asked.clear();
@@ -872,8 +868,8 @@ function ledgerOf(site, statistics, from, to, cut = Infinity) {
   ledger.consumption = sum(site.consumption_statistic);
   return ledger;
 }
-function running(site, statistics) {
-  const last = (id) => statistics[id]?.at(-1)?.sum ?? 0;
+function running(site, rows, before) {
+  const last = (id) => rows[id]?.at(-1)?.sum ?? before[id]?.at(-1)?.sum ?? 0;
   const ledger = emptyLedger();
   for (const item of site.items) {
     const sums = site.sums[item.id] ?? { amount: 0, tax: 0 };
@@ -888,7 +884,7 @@ async function line(hass, cache, site, period, from, to, now, rows, unwritten) {
     const read2 = await cache.read(hass, now, [site.meter.entity], from, to, "5minute", ["change"]);
     const fine = points(read2[site.meter.entity], site.meter.factor);
     if (fine.length) {
-      return steady(fine, from);
+      return fine;
     }
   }
   const coarse = points(rows[site.consumption_statistic]);
@@ -902,34 +898,6 @@ async function line(hass, cache, site, period, from, to, now, rows, unwritten) {
     }
   }
   return coarse;
-}
-function steady(points, from) {
-  const amounts = [...new Set(points.map((point) => Math.round(point.amount * 1e6)))].filter((amount) => amount > 0).sort((a3, b3) => a3 - b3);
-  if (points.length < JUDGED_FROM || amounts.length >= FINE_KINDS) {
-    return points;
-  }
-  const middle = amounts[Math.floor(amounts.length / 2)];
-  const levels = amounts.filter((amount, index) => index === 0 || amount - amounts[index - 1] > middle * LEVEL_GAP);
-  if (levels.length < 2) {
-    return points;
-  }
-  const step2 = levels.slice(1).reduce((least, level, index) => Math.min(least, level - levels[index]), Infinity);
-  const together = [1, 3, 12].find((count) => middle * count / step2 >= STEPS_FOR_A_POINT) ?? 12;
-  if (together === 1) {
-    return points;
-  }
-  const joined = /* @__PURE__ */ new Map();
-  for (const point of points) {
-    const key = Math.floor((point.start - from) / (together * FIVE_MINUTES_MS));
-    const whole = joined.get(key);
-    if (whole) {
-      whole.end = point.end;
-      whole.amount += point.amount;
-    } else {
-      joined.set(key, { ...point });
-    }
-  }
-  return [...joined.values()];
 }
 function statisticIds(site) {
   const items = [...site.items, ...site.removed ?? []];
@@ -955,8 +923,8 @@ async function loadView(hass, cache, site, period, offset, now, wants) {
   const part = PARTS[period];
   const counted = site.periods[period];
   const needsRows = !current || !counted || wants.chart && part !== void 0;
-  const rows = needsRows ? await read2(from, to, BUCKETS[period]) : {};
-  const unwritten = current && needsRows ? running(site, await read2(since, periodStart("hour", now, zone) + HOUR_MS2, "month", ["sum"])) : emptyLedger();
+  const rows = needsRows ? await read2(from, to, BUCKETS[period], ["change", "sum"]) : {};
+  const unwritten = current && needsRows ? running(site, rows, await read2(since, periodStart("hour", now, zone) + HOUR_MS2, "month", ["sum"])) : emptyLedger();
   if (current && counted) {
     view.ledger = { items: counted.items, consumption: counted.consumption };
   } else {
@@ -2700,6 +2668,8 @@ var UtilityCostCard = class extends i4 {
                 .usage-line polyline {
                     fill: none;
                     stroke: var(--utility-cost-usage-color, var(--primary-text-color));
+                    /* See-through, so a busy line doesn't hide the bars under it. */
+                    stroke-opacity: 0.8;
                     stroke-width: 1.5px;
                     stroke-linejoin: round;
                     stroke-linecap: round;

@@ -24,14 +24,6 @@ type Bucket = "5minute" | "hour" | "day" | "month";
 /** The rows a period is read in. A week by its hours, though drawn by its days, for a finer line of consumption. */
 const BUCKETS: Record<Period, Bucket> = { hour: "hour", day: "hour", week: "hour", month: "day", year: "day" };
 const FIVE_MINUTES_MS = 300_000;
-/** How many of the meter's steps a point of the line needs for the steps not to show in it. */
-const STEPS_FOR_A_POINT = 8;
-/** Amounts closer than this share of a typical amount are on the same level. */
-const LEVEL_GAP = 0.05;
-/** With this many different amounts among the points, the meter's steps don't show at five minutes. */
-const FINE_KINDS = 20;
-/** The points it takes to tell a coarse meter from a quiet start of a day. */
-const JUDGED_FROM = 24;
 
 /** A stretch of the period and what was consumed in it, for the line over the chart's bars. */
 export interface Point {
@@ -71,7 +63,10 @@ export interface View {
     earlier: boolean;
 }
 
-/** Keeps the statistics asked for until the hour's rows have been written, as nothing in them changes before. */
+/**
+ * Keeps the statistics asked for, as nothing in them changes until an hour ends. They are asked again when it does, and
+ * once more a little later, in case the hour's rows weren't written yet.
+ */
 export class StatisticsCache {
     private stamp = -1;
     private readonly asked = new Map<string, Promise<Statistics>>();
@@ -85,7 +80,7 @@ export class StatisticsCache {
         period: Bucket,
         types: string[],
     ): Promise<Statistics> {
-        const stamp = Math.floor((now - STATISTICS_DELAY_MS) / HOUR_MS);
+        const stamp = Math.floor(now / HOUR_MS) * 2 + (now % HOUR_MS >= STATISTICS_DELAY_MS ? 1 : 0);
         if (stamp !== this.stamp) {
             this.stamp = stamp;
             this.asked.clear();
@@ -140,9 +135,13 @@ export function ledgerOf(site: Site, statistics: Statistics, from: number, to: n
     return ledger;
 }
 
-/** What the running sums hold that no statistics row has yet: the hour that hasn't ended. */
-export function running(site: Site, statistics: Statistics): Ledger {
-    const last = (id: string) => statistics[id]?.at(-1)?.sum ?? 0;
+/**
+ * What the running sums hold that no statistics row has yet: the hour that hasn't ended. The last sum written is taken
+ * from the period's own rows where it has any, so the two can't disagree on whether an hour was written, and from
+ * `before` for a statistic with no row in the period yet.
+ */
+export function running(site: Site, rows: Statistics, before: Statistics): Ledger {
+    const last = (id: string) => rows[id]?.at(-1)?.sum ?? before[id]?.at(-1)?.sum ?? 0;
     const ledger = emptyLedger();
     for (const item of site.items) {
         const sums = site.sums[item.id] ?? { amount: 0, tax: 0 };
@@ -175,7 +174,7 @@ async function line(
         const read = await cache.read(hass, now, [site.meter.entity], from, to, "5minute", ["change"]);
         const fine = points(read[site.meter.entity], site.meter.factor);
         if (fine.length) {
-            return steady(fine, from);
+            return fine;
         }
     }
     const coarse = points(rows[site.consumption_statistic]);
@@ -190,43 +189,6 @@ async function line(
         }
     }
     return coarse;
-}
-
-/**
- * Five-minute points joined into quarters of an hour or hours, when the meter's steps are too coarse for five minutes.
- * A meter that counts in thousandths shows a steady 40 W as three steps and four in turn, which draws as a saw.
- */
-export function steady(points: Point[], from: number): Point[] {
-    const amounts = [...new Set(points.map((point) => Math.round(point.amount * 1e6)))]
-        .filter((amount) => amount > 0)
-        .sort((a, b) => a - b);
-    // Too little to judge by, or amounts of many kinds, which a meter fine enough gives over a couple of hours.
-    if (points.length < JUDGED_FROM || amounts.length >= FINE_KINDS) {
-        return points;
-    }
-    const middle = amounts[Math.floor(amounts.length / 2)];
-    // The levels the amounts fall on. Amounts a hair apart are one level, as a meter's reading has a float's noise in it.
-    const levels = amounts.filter((amount, index) => index === 0 || amount - amounts[index - 1] > middle * LEVEL_GAP);
-    if (levels.length < 2) {
-        return points;
-    }
-    const step = levels.slice(1).reduce((least, level, index) => Math.min(least, level - levels[index]), Infinity);
-    const together = [1, 3, 12].find((count) => (middle * count) / step >= STEPS_FOR_A_POINT) ?? 12;
-    if (together === 1) {
-        return points;
-    }
-    const joined = new Map<number, Point>();
-    for (const point of points) {
-        const key = Math.floor((point.start - from) / (together * FIVE_MINUTES_MS));
-        const whole = joined.get(key);
-        if (whole) {
-            whole.end = point.end;
-            whole.amount += point.amount;
-        } else {
-            joined.set(key, { ...point });
-        }
-    }
-    return [...joined.values()];
 }
 
 export function statisticIds(site: Site): string[] {
@@ -264,11 +226,13 @@ export async function loadView(
     const part = PARTS[period];
     const counted = site.periods[period];
     const needsRows = !current || !counted || (wants.chart && part !== undefined);
-    const rows = needsRows ? await read(from, to, BUCKETS[period]) : {};
+    const rows = needsRows ? await read(from, to, BUCKETS[period], ["change", "sum"]) : {};
     // The last sum written, from the months since the history began, is a row or two however long the history.
     // Asked up to the hour's end, not to this minute, so the answer is kept until the hour's rows are written.
     const unwritten =
-        current && needsRows ? running(site, await read(since, periodStart("hour", now, zone) + HOUR_MS, "month", ["sum"])) : emptyLedger();
+        current && needsRows
+            ? running(site, rows, await read(since, periodStart("hour", now, zone) + HOUR_MS, "month", ["sum"]))
+            : emptyLedger();
     if (current && counted) {
         view.ledger = { items: counted.items, consumption: counted.consumption };
     } else {

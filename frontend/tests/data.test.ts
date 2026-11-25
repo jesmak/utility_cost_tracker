@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { StatisticsCache, loadView, steady } from "../src/data";
+import { StatisticsCache, loadView } from "../src/data";
 import type { HomeAssistant } from "../src/hass";
 import { periodStart, shift } from "../src/periods";
 import type { Site } from "../src/types";
@@ -154,6 +154,26 @@ describe("what the recorder is asked", () => {
     });
 });
 
+describe("when an hour ends", () => {
+    it("the hour is counted once when its row is written between the two things asked", async () => {
+        // The week's rows were answered before the last hour's row was written, and the last sums after it.
+        const { hass } = recorder(RATES);
+        const raced: HomeAssistant = {
+            ...hass,
+            callWS: async <T>(message: Record<string, unknown>) => {
+                const answer = await hass.callWS!<Record<string, unknown[]>>(message);
+                const early = Object.fromEntries(Object.entries(answer).map(([id, rows]) => [id, rows.slice(0, -1)]));
+                return (message.period === "hour" ? early : answer) as T;
+            },
+        };
+        const view = await load(raced, "week", 0, { chart: true, previous: false });
+        const drawn = view.columns!.reduce((sum, column) => sum + column.ledger.items.spot.amount, 0);
+        // 63 hours written and the 40 minutes under way.
+        expect(drawn).toBeCloseTo(0.1 * (63 + 40 / 60));
+        expect(view.ledger.items.spot.amount).toBeCloseTo(drawn);
+    });
+});
+
 describe("an item removed from the site", () => {
     const removed = [
         {
@@ -191,23 +211,6 @@ describe("the line of consumption", () => {
         expect(view.line).toHaveLength((15 * 60 + 40) / 5);
         expect(view.line![0].amount).toBeCloseTo(2 / 12);
         expect(view.line![0].end - view.line![0].start).toBe(HOUR / 12);
-    });
-
-    it("joins five minutes into quarters of an hour when the meter's steps would show", () => {
-        const five = HOUR / 12;
-        const points = (amounts: number[]) => amounts.map((amount, index) => ({ start: index * five, end: (index + 1) * five, amount }));
-        // About 40 W on a meter that counts in thousandths of a kWh, with a float's noise in its readings, which must not
-        // pass for finer steps.
-        const saw = Array.from({ length: 8 }, () => [0.003967, 0.002991, 0.002991, 0.003052]).flat();
-        const coarse = steady(points(saw), 0);
-        expect(coarse).toHaveLength(Math.ceil(saw.length / 3));
-        expect(coarse[0]).toMatchObject({ start: 0, end: 3 * five });
-        expect(coarse[0].amount).toBeCloseTo(0.009949);
-        // A meter whose amounts are of many kinds is left as it is, however close together they are.
-        const fine = points(Array.from({ length: 30 }, (_, index) => 0.105469 + index * 0.001953));
-        expect(steady(fine, 0)).toBe(fine);
-        // And so is a day's start, which is too little to judge by.
-        expect(steady(points(saw.slice(0, 12)), 0)).toHaveLength(12);
     });
 
     it("is by the hour over a day the meter has no rows for", async () => {
@@ -262,21 +265,23 @@ describe("the previous period", () => {
     });
 });
 
-it("the statistics are asked once an hour, and again after a failure", async () => {
+it("the statistics are asked when an hour ends and once more soon after, and again after a failure", async () => {
     const { hass, asked } = recorder(RATES);
     const cache = new StatisticsCache();
     await loadView(hass, cache, site(), "day", -1, NOW, { chart: true, previous: false });
     await loadView(hass, cache, site(), "day", -1, NOW + 60_000, { chart: true, previous: false });
     expect(asked).toHaveLength(1);
-    // The hour's rows are written a moment after it ends.
+    // Again when the hour ends, and once more after its rows have had time to be written.
     await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:00:30Z"), { chart: true, previous: false });
-    expect(asked).toHaveLength(1);
-    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:02:00Z"), { chart: true, previous: false });
+    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:01:10Z"), { chart: true, previous: false });
     expect(asked).toHaveLength(2);
+    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:02:00Z"), { chart: true, previous: false });
+    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:30:00Z"), { chart: true, previous: false });
+    expect(asked).toHaveLength(3);
 
     const failing: HomeAssistant = { config: { time_zone: ZONE }, callWS: () => Promise.reject(new Error("no recorder")) };
     const failed = new StatisticsCache();
     await expect(loadView(failing, failed, site(), "day", -1, NOW, { chart: true, previous: false })).rejects.toThrow();
     await loadView(hass, failed, site(), "day", -1, NOW, { chart: true, previous: false });
-    expect(asked).toHaveLength(3);
+    expect(asked).toHaveLength(4);
 });

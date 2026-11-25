@@ -1288,6 +1288,8 @@ export class UtilityCostCard extends LitElement {
                 .usage-line polyline {
                     fill: none;
                     stroke: var(--utility-cost-usage-color, var(--primary-text-color));
+                    /* See-through, so a busy line doesn't hide the bars under it. */
+                    stroke-opacity: 0.8;
                     stroke-width: 1.5px;
                     stroke-linejoin: round;
                     stroke-linecap: round;
