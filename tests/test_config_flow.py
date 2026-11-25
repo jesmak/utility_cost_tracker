@@ -56,6 +56,12 @@ async def test_a_site_starts_with_its_utility_s_elements_in_the_user_s_language(
     ]
 
 
+async def test_district_heating_starts_with_energy_and_a_basic_fee(hass: HomeAssistant) -> None:
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**SITE, "utility": "district_heating"})
+    assert sorted(sub.title for sub in result["result"].subentries.values()) == ["Basic fee", "Energy"]
+
+
 async def test_other_starts_with_one_generic_element(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {**SITE, "utility": "other"})

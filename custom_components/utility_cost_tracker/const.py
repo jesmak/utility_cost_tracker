@@ -40,8 +40,15 @@ UTILITIES = {
     "electricity": ("energy", "transfer"),
     "water": ("water", "wastewater"),
     "gas": ("gas", "transfer"),
+    "district_heating": ("energy", "basic_fee"),
     "other": ("costs",),
 }
-ICONS = {"electricity": "mdi:lightning-bolt", "water": "mdi:water", "gas": "mdi:fire", "other": "mdi:cash"}
+ICONS = {
+    "electricity": "mdi:lightning-bolt",
+    "water": "mdi:water",
+    "gas": "mdi:fire",
+    "district_heating": "mdi:radiator",
+    "other": "mdi:cash",
+}
 
 STORAGE_VERSION = 1

@@ -221,6 +221,7 @@
         "electricity": "Sähkö",
         "water": "Vesi",
         "gas": "Kaasu",
+        "district_heating": "Kaukolämpö",
         "other": "Jokin muu"
       }
     },
@@ -231,6 +232,7 @@
         "water": "Vesi",
         "wastewater": "Jätevesi",
         "gas": "Kaasu",
+        "basic_fee": "Perusmaksu",
         "costs": "Kulut"
       }
     },

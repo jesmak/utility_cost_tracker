@@ -221,6 +221,7 @@
         "electricity": "Electricity",
         "water": "Water",
         "gas": "Gas",
+        "district_heating": "District heating",
         "other": "Something else"
       }
     },
@@ -231,6 +232,7 @@
         "water": "Water",
         "wastewater": "Wastewater",
         "gas": "Gas",
+        "basic_fee": "Basic fee",
         "costs": "Costs"
       }
     },

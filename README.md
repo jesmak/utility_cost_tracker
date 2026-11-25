@@ -57,18 +57,18 @@ Every setting can be changed later. A change applies from then on, and the total
 
 Added as an integration entry. Its settings are changed with Reconfigure.
 
-| Name                  | Type                                    | Description                                                                                                                                  | Default          |
-| --------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| Name                  | text                                    | The name of the site and its device, such as Home electricity.                                                                               | required         |
-| Utility               | electricity, water, gas, something else | The cost elements a new site starts with (below), and the icon of its sensors.                                                               | electricity      |
-| Meter                 | sensor                                  | A sensor with the meter's cumulative reading, such as the total energy imported in kWh or the water used in m³.                              | required         |
-| Conversion factor     | number                                  | The reading is multiplied by this before any price, such as from gas m³ to kWh.                                                              | 1                |
-| Periods               | hour, day, week, month, year            | Each item and total gets a sensor for each period chosen. A week starts on Monday.                                                           | day, month, year |
-| Price unit            | currency, hundredths of the currency    | Whether prices are typed in the currency or in its hundredths, such as cents or öre per kWh. The price sensors show prices in the same unit. | currency         |
-| Symbol for hundredths | text                                    | The symbol the price sensors use for a hundredth, such as c, öre or p. Only used when prices are in hundredths.                              | c                |
+| Name                  | Type                                                      | Description                                                                                                                                  | Default          |
+| --------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Name                  | text                                                      | The name of the site and its device, such as Home electricity.                                                                               | required         |
+| Utility               | electricity, water, gas, district heating, something else | The cost elements a new site starts with (below), and the icon of its sensors.                                                               | electricity      |
+| Meter                 | sensor                                                    | A sensor with the meter's cumulative reading, such as the total energy imported in kWh or the water used in m³.                              | required         |
+| Conversion factor     | number                                                    | The reading is multiplied by this before any price, such as from gas m³ to kWh.                                                              | 1                |
+| Periods               | hour, day, week, month, year                              | Each item and total gets a sensor for each period chosen. A week starts on Monday.                                                           | day, month, year |
+| Price unit            | currency, hundredths of the currency                      | Whether prices are typed in the currency or in its hundredths, such as cents or öre per kWh. The price sensors show prices in the same unit. | currency         |
+| Symbol for hundredths | text                                                      | The symbol the price sensors use for a hundredth, such as c, öre or p. Only used when prices are in hundredths.                              | c                |
 
 A new site starts with the cost elements of its utility, named in Home Assistant's language and with no tax. They are Energy
-and Transfer for electricity, Water and Wastewater for water, Gas and Transfer for gas, and Costs for something else. They can
+and Transfer for electricity, Water and Wastewater for water, Gas and Transfer for gas, Energy and Basic fee for district heating, and Costs for something else. They can
 be renamed, given a tax rate or removed like any other.
 
 ### Cost element
@@ -138,6 +138,9 @@ or c/kWh when prices are typed in hundredths.
 A fixed fee is added in full at the start of its period, whatever the consumption. It shows only in the sensors of
 its own period and longer ones, so a monthly fee is in the month's and the year's sensors but not in the day's or the
 hour's. A fee added in the middle of its period is added at once, as it is due for that period.
+
+A yearly fee is likewise only in the year's sensors. A fee that a contract states per year but bills every month, as
+district heating's basic fee often is, is entered as a monthly fee of a twelfth of it, so the months show it too.
 
 The price sensors leave out items with a separate meter, as those aren't priced per unit of the site's meter.
 
