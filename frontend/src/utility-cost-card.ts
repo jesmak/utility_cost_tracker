@@ -27,6 +27,24 @@ import { LINES, TAX_MODES, shows } from "./types";
 import type { Site, UtilityCostCardConfig } from "./types";
 
 const HOUR_MS = 3_600_000;
+
+/** The smallest of 1, 2, 2.5 and 5 times a power of ten that is at least the value. */
+function niceUp(value: number): number {
+    if (!(value > 0)) {
+        return 0;
+    }
+    const power = 10 ** Math.floor(Math.log10(value));
+    const lead = value / power;
+    // A hair's allowance, as a division can leave 2.0000000001 of what is 2.
+    return (lead <= 1.000001 ? 1 : lead <= 2.000001 ? 2 : lead <= 2.500001 ? 2.5 : lead <= 5.000001 ? 5 : 10) * power;
+}
+
+/** A scale of two to four round steps that reaches the value. */
+function scale(value: number): { step: number; steps: number } {
+    const step = niceUp(value / 3);
+    return { step, steps: step ? Math.max(Math.ceil(value / step - 1e-9), 2) : 2 };
+}
+
 const PADDING = 16;
 const GAP = 12;
 // Each part's height, which the texts kept to one line make the same at every width. The card's least height is
@@ -466,46 +484,68 @@ export class UtilityCostCard extends LitElement {
         // A bar opens its own period, where the site follows it and the card has a way back.
         const opens = Boolean(site.periods[part]) && (shows(this.config, "show_periods") || !shows(this.config, "show_earlier"));
         const hovered = this.hovered === undefined ? undefined : columns[this.hovered];
-        return html`<div class="part chart">
-            <div
-                class="plot"
-                role="group"
-                aria-label=${this.text("card.chart")}
-                @pointermove=${(event: PointerEvent) => this.hover(event, columns.length)}
-                @pointerleave=${() => (this.hovered = undefined)}
-            >
-                <span class="top">${this.money(site, top, digits)}</span>
-                ${columns.map(({ column, bill: columnBill }) => {
-                    const label = `${this.columnLabel(part, column)} ${this.money(site, columnBill.total, digits)}`;
-                    const bars = column.future ? nothing : this.segments(site, columnBill.segments, top || 1, "height", false);
-                    return opens && !column.future
-                        ? html`<button
-                              type="button"
-                              class="column ${column.current ? "current" : ""}"
-                              aria-label=${label}
-                              @click=${() => this.open(part, column.start)}
-                          >
-                              ${bars}
-                          </button>`
-                        : html`<div class="column ${column.current ? "current" : ""}" role="img" aria-label=${label}>${bars}</div>`;
-                })}
-                ${
-                    most > 0
-                        ? html`<span class="top usage"
-                                  >${this.number(most, 0, most < 0.1 ? 3 : most < 10 ? 2 : 1)} ${this.rateUnit(site)}</span
-                              ><svg class="usage-line" viewBox="0 0 ${columns.length} 100" preserveAspectRatio="none" aria-hidden="true">
+        // Both scales have the same steps, so one set of lines across the chart serves the bars and the line.
+        const cost = scale(top);
+        const rate = { step: niceUp(most / cost.steps), steps: cost.steps };
+        const ticks = Array.from({ length: cost.steps }, (_, index) => cost.steps - index);
+        const costTop = cost.step * cost.steps || 1;
+        const rateTop = rate.step * rate.steps || 1;
+        const currency =
+            new Intl.NumberFormat(this.language(), { style: "currency", currency: site.currency })
+                .formatToParts(0)
+                .find((piece) => piece.type === "currency")?.value ?? site.currency;
+        const side = (unit: string, step: number, kind: string) =>
+            html`<div class="scale ${kind}" aria-hidden="true">
+                <span class="unit">${unit}</span>
+                ${step ? ticks.map((tick) => html`<span style="bottom: ${(tick / cost.steps) * 100}%">${this.number(tick * step, 0, 3)}</span>`) : nothing}
+            </div>`;
+        return html`<div class="part chart ${most > 0 ? "lined" : ""}">
+            <div class="plot">
+                ${side(currency, cost.step, "cost")}
+                <div
+                    class="bars ${columns.length > 40 ? "dense" : ""}"
+                    role="group"
+                    aria-label=${this.text("card.chart")}
+                    @pointermove=${(event: PointerEvent) => this.hover(event, columns.length)}
+                    @pointerleave=${() => (this.hovered = undefined)}
+                >
+                    ${ticks.map((tick) => html`<i class="grid" style="bottom: ${(tick / cost.steps) * 100}%"></i>`)}
+                    ${columns.map(({ column, bill: columnBill }) => {
+                        const label = `${this.columnLabel(part, column)} ${this.money(site, columnBill.total, digits)}`;
+                        const bars = column.future ? nothing : this.segments(site, columnBill.segments, costTop, "height", false);
+                        return opens && !column.future
+                            ? html`<button
+                                  type="button"
+                                  class="column ${column.current ? "current" : ""}"
+                                  aria-label=${label}
+                                  @click=${() => this.open(part, column.start)}
+                              >
+                                  ${bars}
+                              </button>`
+                            : html`<div class="column ${column.current ? "current" : ""}" role="img" aria-label=${label}>${bars}</div>`;
+                    })}
+                    ${
+                        most > 0
+                            ? html`<svg
+                                  class="usage-line"
+                                  viewBox="0 0 ${columns.length} 100"
+                                  preserveAspectRatio="none"
+                                  aria-hidden="true"
+                              >
                                   <polyline
                                       points=${rates
                                           .map(
                                               (point) =>
-                                                  `${this.across(view.columns!, point.at).toFixed(3)},${(100 - (point.rate / most) * 100).toFixed(2)}`,
+                                                  `${this.across(view.columns!, point.at).toFixed(3)},${(100 - (point.rate / rateTop) * 100).toFixed(2)}`,
                                           )
                                           .join(" ")}
                                   />
                               </svg>`
-                        : nothing
-                }
-                ${hovered ? this.tip(site, part, hovered.column, hovered.bill, digits, this.hovered! / columns.length) : nothing}
+                            : nothing
+                    }
+                    ${hovered ? this.tip(site, part, hovered.column, hovered.bill, digits, this.hovered! / columns.length) : nothing}
+                </div>
+                ${most > 0 ? side(this.rateUnit(site), rate.step, "rate") : nothing}
             </div>
             <div class="axis">${this.axis(view, part).map((label) => html`<span>${label}</span>`)}</div>
             <div class="note">
@@ -1109,16 +1149,65 @@ export class UtilityCostCard extends LitElement {
                     display: block;
                     height: 100%;
                 }
+                .chart {
+                    --scale: 32px;
+                }
                 .plot {
+                    display: flex;
+                    height: ${CHART_HEIGHT}px;
+                    /* Room for the scales' units, and for the top step's number. */
+                    padding-top: 14px;
+                    box-sizing: border-box;
+                }
+                .bars {
                     position: relative;
+                    flex: 1 1 0;
+                    min-width: 0;
                     display: flex;
                     align-items: flex-end;
                     gap: 2px;
-                    height: ${CHART_HEIGHT}px;
-                    /* Room for the top's amount, which the tallest bars would otherwise run under. */
-                    padding-top: 14px;
                     border-bottom: 1px solid var(--divider-color);
-                    box-sizing: border-box;
+                }
+                .bars.dense {
+                    gap: 1px;
+                }
+                .grid {
+                    position: absolute;
+                    left: 0;
+                    right: 0;
+                    border-top: 1px solid var(--divider-color);
+                    opacity: 0.6;
+                    pointer-events: none;
+                }
+                .scale {
+                    position: relative;
+                    flex: none;
+                    width: var(--scale);
+                    font-size: 10.5px;
+                    line-height: 14px;
+                    color: var(--secondary-text-color);
+                    white-space: nowrap;
+                }
+                .scale span {
+                    position: absolute;
+                    right: 6px;
+                    transform: translateY(50%);
+                }
+                .scale.rate span {
+                    right: auto;
+                    left: 6px;
+                }
+                /* The units are over the bars' ends, in the room above the top line, clear of the steps' numbers. */
+                .scale .unit {
+                    top: -14px;
+                    left: 100%;
+                    right: auto;
+                    margin: 0 4px;
+                    transform: none;
+                }
+                .scale.rate .unit {
+                    left: auto;
+                    right: 100%;
                 }
                 .column {
                     flex: 1 1 0;
@@ -1173,31 +1262,26 @@ export class UtilityCostCard extends LitElement {
                     border-radius: 2px;
                     margin-inline-end: 5px;
                 }
-                .column.current {
-                    outline: 1px solid var(--secondary-text-color);
-                    outline-offset: 1px;
-                    border-radius: 2px;
+                /* The part under way is marked under the baseline, clear of its bar and in no bar's colour. */
+                .column {
+                    position: relative;
                 }
-                .top {
+                .column.current::after {
+                    content: "";
                     position: absolute;
-                    top: 0;
                     left: 0;
-                    font-size: 10.5px;
-                    line-height: 14px;
-                    color: var(--secondary-text-color);
-                    pointer-events: none;
-                }
-                .top.usage {
-                    left: auto;
                     right: 0;
+                    bottom: -5px;
+                    height: 2px;
+                    border-radius: 1px;
+                    background: var(--primary-text-color);
                 }
                 .usage-line {
                     position: absolute;
                     left: 0;
                     bottom: 0;
                     width: 100%;
-                    /* The bars' room, under the top's amount. */
-                    height: calc(100% - 14px);
+                    height: 100%;
                     overflow: visible;
                     pointer-events: none;
                 }
@@ -1212,10 +1296,14 @@ export class UtilityCostCard extends LitElement {
                 .axis {
                     display: flex;
                     justify-content: space-between;
+                    margin-left: var(--scale);
                     height: 18px;
                     line-height: 18px;
                     font-size: 10.5px;
                     color: var(--secondary-text-color);
+                }
+                .lined .axis {
+                    margin-right: var(--scale);
                 }
                 .note {
                     height: 16px;

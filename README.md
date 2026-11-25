@@ -244,7 +244,7 @@ is compared with the one before it instead.
 ### The chart
 
 A day is drawn by its hours, a week and a month by their days and a year by its weeks, each bar stacked by element.
-A year's first and last weeks are cut at the year's ends. The bar under way is outlined. An hour has no chart. A
+A year's first and last weeks are cut at the year's ends. The bar under way is marked on the baseline. The cost's scale is on the left. An hour has no chart. A
 fixed fee belongs to no single hour or day, so a fee of a period longer than a bar's is left out of the bars, and the
 card says how much they leave out.
 
@@ -256,10 +256,11 @@ Pointing at a bar shows its cost by element and its consumption. Pressing a bar 
 of a month, when the site follows that period.
 
 A line over the bars follows the consumption, so a dear hour with little use stands apart from a cheap one with much.
-It is drawn by what was used per hour, on a scale of its own whose top is in the chart's right corner. For energy in
+It is drawn by what was used per hour, on a scale of its own on the right. For energy in
 kWh that is the power in kW. The line is finer than the bars where the history allows. A week's line goes by the hour.
 A day's goes by five minutes, from the meter's own statistics, which Home Assistant keeps that fine only for as long as
-it keeps its history, and only for a meter with a state class. Other days go by the hour. The line's colour is the text's, or
+it keeps its history, and only for a meter with a state class. Where little is used and the meter's
+steps would draw as a saw, the five minutes are joined into quarters of an hour or hours. Other days go by the hour. The line's colour is the text's, or
 the theme's `--utility-cost-usage-color`.
 
 ### Colours

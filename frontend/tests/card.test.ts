@@ -194,7 +194,7 @@ describe("the card", () => {
 
     it("tells what a bar holds under the pointer, and opens the bar's own period when it is pressed", async () => {
         const element = await card({ show_estimate: false });
-        const plot = all(element, ".plot")[0];
+        const plot = all(element, ".bars")[0];
         plot.getBoundingClientRect = () => ({ left: 0, width: 300 }) as DOMRect;
         plot.dispatchEvent(new MouseEvent("pointermove", { clientX: 1 }));
         await settled(element);
@@ -233,7 +233,9 @@ describe("the card", () => {
         const element = await card({ show_estimate: false }, used);
         const points = element.shadowRoot!.querySelector(".usage-line polyline")!.getAttribute("points")!.split(" ");
         expect(points).toEqual(["0.500,0.00"]);
-        expect(text(element, ".top.usage")).toBe("0.2 kWh/h");
+        // The scale has two steps when nothing has cost anything, and the line's follows it.
+        expect(rows(element, ".scale.rate")).toEqual(["kWh/h 0.2 0.1"]);
+        expect(text(element, ".scale.cost")).toBe("€");
         expect(all(await card({ show_estimate: false, show_usage: false }), ".usage-line")).toHaveLength(0);
     });
 

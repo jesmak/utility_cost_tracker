@@ -813,6 +813,10 @@ function averagePrice(site, bill, consumption) {
 var HOUR_MS2 = 36e5;
 var BUCKETS = { hour: "hour", day: "hour", week: "hour", month: "day", year: "day" };
 var FIVE_MINUTES_MS = 3e5;
+var STEPS_FOR_A_POINT = 8;
+var LEVEL_GAP = 0.05;
+var FINE_KINDS = 20;
+var JUDGED_FROM = 24;
 var StatisticsCache = class {
   constructor() {
     this.stamp = -1;
@@ -884,7 +888,7 @@ async function line(hass, cache, site, period, from, to, now, rows, unwritten) {
     const read2 = await cache.read(hass, now, [site.meter.entity], from, to, "5minute", ["change"]);
     const fine = points(read2[site.meter.entity], site.meter.factor);
     if (fine.length) {
-      return fine;
+      return steady(fine, from);
     }
   }
   const coarse = points(rows[site.consumption_statistic]);
@@ -898,6 +902,34 @@ async function line(hass, cache, site, period, from, to, now, rows, unwritten) {
     }
   }
   return coarse;
+}
+function steady(points, from) {
+  const amounts = [...new Set(points.map((point) => Math.round(point.amount * 1e6)))].filter((amount) => amount > 0).sort((a3, b3) => a3 - b3);
+  if (points.length < JUDGED_FROM || amounts.length >= FINE_KINDS) {
+    return points;
+  }
+  const middle = amounts[Math.floor(amounts.length / 2)];
+  const levels = amounts.filter((amount, index) => index === 0 || amount - amounts[index - 1] > middle * LEVEL_GAP);
+  if (levels.length < 2) {
+    return points;
+  }
+  const step2 = levels.slice(1).reduce((least, level, index) => Math.min(least, level - levels[index]), Infinity);
+  const together = [1, 3, 12].find((count) => middle * count / step2 >= STEPS_FOR_A_POINT) ?? 12;
+  if (together === 1) {
+    return points;
+  }
+  const joined = /* @__PURE__ */ new Map();
+  for (const point of points) {
+    const key = Math.floor((point.start - from) / (together * FIVE_MINUTES_MS));
+    const whole = joined.get(key);
+    if (whole) {
+      whole.end = point.end;
+      whole.amount += point.amount;
+    } else {
+      joined.set(key, { ...point });
+    }
+  }
+  return [...joined.values()];
 }
 function statisticIds(site) {
   const items = [...site.items, ...site.removed ?? []];
@@ -1579,6 +1611,18 @@ if (!customElements.get("utility-cost-card-editor")) {
 
 // src/utility-cost-card.ts
 var HOUR_MS3 = 36e5;
+function niceUp(value) {
+  if (!(value > 0)) {
+    return 0;
+  }
+  const power = 10 ** Math.floor(Math.log10(value));
+  const lead = value / power;
+  return (lead <= 1.000001 ? 1 : lead <= 2.000001 ? 2 : lead <= 2.500001 ? 2.5 : lead <= 5.000001 ? 5 : 10) * power;
+}
+function scale(value) {
+  const step2 = niceUp(value / 3);
+  return { step: step2, steps: step2 ? Math.max(Math.ceil(value / step2 - 1e-9), 2) : 2 };
+}
 var PADDING = 16;
 var GAP = 12;
 var HEADER_HEIGHT = 24;
@@ -1932,37 +1976,54 @@ var UtilityCostCard = class extends i4 {
     const most = Math.max(...rates.map((point) => point.rate), 0);
     const opens = Boolean(site.periods[part]) && (shows(this.config, "show_periods") || !shows(this.config, "show_earlier"));
     const hovered = this.hovered === void 0 ? void 0 : columns[this.hovered];
-    return b2`<div class="part chart">
-            <div
-                class="plot"
-                role="group"
-                aria-label=${this.text("card.chart")}
-                @pointermove=${(event) => this.hover(event, columns.length)}
-                @pointerleave=${() => this.hovered = void 0}
-            >
-                <span class="top">${this.money(site, top, digits)}</span>
-                ${columns.map(({ column, bill: columnBill }) => {
+    const cost = scale(top);
+    const rate = { step: niceUp(most / cost.steps), steps: cost.steps };
+    const ticks = Array.from({ length: cost.steps }, (_2, index) => cost.steps - index);
+    const costTop = cost.step * cost.steps || 1;
+    const rateTop = rate.step * rate.steps || 1;
+    const currency = new Intl.NumberFormat(this.language(), { style: "currency", currency: site.currency }).formatToParts(0).find((piece) => piece.type === "currency")?.value ?? site.currency;
+    const side = (unit, step2, kind) => b2`<div class="scale ${kind}" aria-hidden="true">
+                <span class="unit">${unit}</span>
+                ${step2 ? ticks.map((tick) => b2`<span style="bottom: ${tick / cost.steps * 100}%">${this.number(tick * step2, 0, 3)}</span>`) : A}
+            </div>`;
+    return b2`<div class="part chart ${most > 0 ? "lined" : ""}">
+            <div class="plot">
+                ${side(currency, cost.step, "cost")}
+                <div
+                    class="bars ${columns.length > 40 ? "dense" : ""}"
+                    role="group"
+                    aria-label=${this.text("card.chart")}
+                    @pointermove=${(event) => this.hover(event, columns.length)}
+                    @pointerleave=${() => this.hovered = void 0}
+                >
+                    ${ticks.map((tick) => b2`<i class="grid" style="bottom: ${tick / cost.steps * 100}%"></i>`)}
+                    ${columns.map(({ column, bill: columnBill }) => {
       const label = `${this.columnLabel(part, column)} ${this.money(site, columnBill.total, digits)}`;
-      const bars = column.future ? A : this.segments(site, columnBill.segments, top || 1, "height", false);
+      const bars = column.future ? A : this.segments(site, columnBill.segments, costTop, "height", false);
       return opens && !column.future ? b2`<button
-                              type="button"
-                              class="column ${column.current ? "current" : ""}"
-                              aria-label=${label}
-                              @click=${() => this.open(part, column.start)}
-                          >
-                              ${bars}
-                          </button>` : b2`<div class="column ${column.current ? "current" : ""}" role="img" aria-label=${label}>${bars}</div>`;
+                                  type="button"
+                                  class="column ${column.current ? "current" : ""}"
+                                  aria-label=${label}
+                                  @click=${() => this.open(part, column.start)}
+                              >
+                                  ${bars}
+                              </button>` : b2`<div class="column ${column.current ? "current" : ""}" role="img" aria-label=${label}>${bars}</div>`;
     })}
-                ${most > 0 ? b2`<span class="top usage"
-                                  >${this.number(most, 0, most < 0.1 ? 3 : most < 10 ? 2 : 1)} ${this.rateUnit(site)}</span
-                              ><svg class="usage-line" viewBox="0 0 ${columns.length} 100" preserveAspectRatio="none" aria-hidden="true">
+                    ${most > 0 ? b2`<svg
+                                  class="usage-line"
+                                  viewBox="0 0 ${columns.length} 100"
+                                  preserveAspectRatio="none"
+                                  aria-hidden="true"
+                              >
                                   <polyline
                                       points=${rates.map(
-      (point) => `${this.across(view.columns, point.at).toFixed(3)},${(100 - point.rate / most * 100).toFixed(2)}`
+      (point) => `${this.across(view.columns, point.at).toFixed(3)},${(100 - point.rate / rateTop * 100).toFixed(2)}`
     ).join(" ")}
                                   />
                               </svg>` : A}
-                ${hovered ? this.tip(site, part, hovered.column, hovered.bill, digits, this.hovered / columns.length) : A}
+                    ${hovered ? this.tip(site, part, hovered.column, hovered.bill, digits, this.hovered / columns.length) : A}
+                </div>
+                ${most > 0 ? side(this.rateUnit(site), rate.step, "rate") : A}
             </div>
             <div class="axis">${this.axis(view, part).map((label) => b2`<span>${label}</span>`)}</div>
             <div class="note">
@@ -2204,17 +2265,17 @@ var UtilityCostCard = class extends i4 {
     if (!card || !content || !card.clientWidth) {
       return;
     }
-    const scale = drawnScale(card);
+    const scale2 = drawnScale(card);
     const parts = [...content.children];
     const style = getComputedStyle(card);
     const needed = parts.reduce(
-      (sum, part) => sum + (part.classList.contains("list") ? part.scrollHeight : part.getBoundingClientRect().height / scale),
+      (sum, part) => sum + (part.classList.contains("list") ? part.scrollHeight : part.getBoundingClientRect().height / scale2),
       0
     ) + GAP * (parts.length - 1) + 2 * PADDING + px(style.borderTopWidth) + px(style.borderBottomWidth);
     const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
     if (!limit) {
       this.filled = 0;
-      this.topped = spareRoom(card.getBoundingClientRect().height / scale, needed) >= ROW_PX;
+      this.topped = spareRoom(card.getBoundingClientRect().height / scale2, needed) >= ROW_PX;
       return;
     }
     this.topped = false;
@@ -2500,16 +2561,65 @@ var UtilityCostCard = class extends i4 {
                     display: block;
                     height: 100%;
                 }
+                .chart {
+                    --scale: 32px;
+                }
                 .plot {
+                    display: flex;
+                    height: ${CHART_HEIGHT}px;
+                    /* Room for the scales' units, and for the top step's number. */
+                    padding-top: 14px;
+                    box-sizing: border-box;
+                }
+                .bars {
                     position: relative;
+                    flex: 1 1 0;
+                    min-width: 0;
                     display: flex;
                     align-items: flex-end;
                     gap: 2px;
-                    height: ${CHART_HEIGHT}px;
-                    /* Room for the top's amount, which the tallest bars would otherwise run under. */
-                    padding-top: 14px;
                     border-bottom: 1px solid var(--divider-color);
-                    box-sizing: border-box;
+                }
+                .bars.dense {
+                    gap: 1px;
+                }
+                .grid {
+                    position: absolute;
+                    left: 0;
+                    right: 0;
+                    border-top: 1px solid var(--divider-color);
+                    opacity: 0.6;
+                    pointer-events: none;
+                }
+                .scale {
+                    position: relative;
+                    flex: none;
+                    width: var(--scale);
+                    font-size: 10.5px;
+                    line-height: 14px;
+                    color: var(--secondary-text-color);
+                    white-space: nowrap;
+                }
+                .scale span {
+                    position: absolute;
+                    right: 6px;
+                    transform: translateY(50%);
+                }
+                .scale.rate span {
+                    right: auto;
+                    left: 6px;
+                }
+                /* The units are over the bars' ends, in the room above the top line, clear of the steps' numbers. */
+                .scale .unit {
+                    top: -14px;
+                    left: 100%;
+                    right: auto;
+                    margin: 0 4px;
+                    transform: none;
+                }
+                .scale.rate .unit {
+                    left: auto;
+                    right: 100%;
                 }
                 .column {
                     flex: 1 1 0;
@@ -2564,31 +2674,26 @@ var UtilityCostCard = class extends i4 {
                     border-radius: 2px;
                     margin-inline-end: 5px;
                 }
-                .column.current {
-                    outline: 1px solid var(--secondary-text-color);
-                    outline-offset: 1px;
-                    border-radius: 2px;
+                /* The part under way is marked under the baseline, clear of its bar and in no bar's colour. */
+                .column {
+                    position: relative;
                 }
-                .top {
+                .column.current::after {
+                    content: "";
                     position: absolute;
-                    top: 0;
                     left: 0;
-                    font-size: 10.5px;
-                    line-height: 14px;
-                    color: var(--secondary-text-color);
-                    pointer-events: none;
-                }
-                .top.usage {
-                    left: auto;
                     right: 0;
+                    bottom: -5px;
+                    height: 2px;
+                    border-radius: 1px;
+                    background: var(--primary-text-color);
                 }
                 .usage-line {
                     position: absolute;
                     left: 0;
                     bottom: 0;
                     width: 100%;
-                    /* The bars' room, under the top's amount. */
-                    height: calc(100% - 14px);
+                    height: 100%;
                     overflow: visible;
                     pointer-events: none;
                 }
@@ -2603,10 +2708,14 @@ var UtilityCostCard = class extends i4 {
                 .axis {
                     display: flex;
                     justify-content: space-between;
+                    margin-left: var(--scale);
                     height: 18px;
                     line-height: 18px;
                     font-size: 10.5px;
                     color: var(--secondary-text-color);
+                }
+                .lined .axis {
+                    margin-right: var(--scale);
                 }
                 .note {
                     height: 16px;
