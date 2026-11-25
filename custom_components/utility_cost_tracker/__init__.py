@@ -9,6 +9,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from . import history, websocket
+from .card import async_add_card_resource, async_remove_card_resource, async_serve_card
 from .const import DOMAIN
 from .tracker import Tracker
 
@@ -21,10 +22,12 @@ type UtilityCostConfigEntry = ConfigEntry[Tracker]
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     websocket.async_register(hass)
+    await async_serve_card(hass)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: UtilityCostConfigEntry) -> bool:
+    await async_add_card_resource(hass)
     tracker = Tracker(hass, entry)
     await tracker.async_start()
     entry.runtime_data = tracker
@@ -43,6 +46,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: UtilityCostConfigEntry)
 async def async_remove_entry(hass: HomeAssistant, entry: UtilityCostConfigEntry) -> None:
     await Tracker(hass, entry).async_remove()
     await history.async_clear(hass, entry)
+    # The card stays for as long as there is a site to show.
+    if not hass.config_entries.async_entries(DOMAIN):
+        await async_remove_card_resource(hass)
 
 
 async def async_update_listener(hass: HomeAssistant, entry: UtilityCostConfigEntry) -> None:

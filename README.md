@@ -178,6 +178,109 @@ show its change over any hour, day, week, month or year. They need the recorder,
 default. An item that is removed keeps its statistics, so earlier periods stay whole. Removing the site removes
 them all.
 
+## Utility cost card
+
+The integration comes with a dashboard card for one site. It shows what a period has cost, the bill in its elements
+and items, a chart of the period in parts, each part's share of the total, and an estimate for the whole period. The
+period is changed in the card, and earlier periods are a tap away. Every part can be switched off, so the same card is
+a whole bill with a chart, or two rows with a total and a share bar.
+
+It works with whatever a site is set up for, with any utility, unit and currency, any elements and items, and with or
+without fixed fees. The periods it offers are the ones the site follows.
+
+The integration serves the card itself and adds it to the dashboards' resources when it starts, so the card is always
+the integration's own version. With the resources set in YAML (`resource_mode: yaml`), it can't add or update
+itself, and the log says which line to add, change or remove.
+
+The current period comes straight from the integration, so it needs none of the site's sensors enabled. Earlier
+periods, the chart and the estimate come from the integration's [statistics](#statistics), so they reach back to when
+the site was added and need the recorder.
+
+### Card options
+
+The card has a visual editor. Add **Utility cost** from the card picker and choose the site. The options can also be
+written by hand, and `height_mode`, `height` and `max_height` only by hand. In a sections view the layout tab sets the
+card's height. They are for where there is no layout tab, such as a masonry or panel view, or a stack or other card
+the card is inside, even in a sections view.
+
+| Name               | Type    | Description                                                                                                                                                                                                                                                                                                                | Default                                                                         |
+| ------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `type`             | string  | `custom:utility-cost-card`                                                                                                                                                                                                                                                                                                 | required                                                                        |
+| `site`             | string  | The site, as the id of its entry. The editor lists the sites by name                                                                                                                                                                                                                                                       | required                                                                        |
+| `title`            | string  | A title in place of the site's name                                                                                                                                                                                                                                                                                        | the site's name                                                                 |
+| `period`           | string  | The period shown first, `hour`, `day`, `week`, `month` or `year`, when the site follows it                                                                                                                                                                                                                                 | `month`, or the site's longest period when it doesn't follow months             |
+| `show_price`       | boolean | The current price per unit, with tax                                                                                                                                                                                                                                                                                       | `true`                                                                          |
+| `show_periods`     | boolean | The switch between the periods the site follows                                                                                                                                                                                                                                                                            | `true`                                                                          |
+| `show_earlier`     | boolean | The arrows to earlier periods                                                                                                                                                                                                                                                                                              | `true`                                                                          |
+| `show_consumption` | boolean | The period's consumption and the average price paid per unit, fixed fees left out                                                                                                                                                                                                                                          | `true`                                                                          |
+| `show_estimate`    | boolean | [The estimate](#the-estimate) for the whole period, and the previous period to compare with                                                                                                                                                                                                                                | `true`                                                                          |
+| `show_chart`       | boolean | [The chart](#the-chart) of the period in parts                                                                                                                                                                                                                                                                             | `true`                                                                          |
+| `show_usage`       | boolean | The consumption as a line over the chart's bars                                                                                                                                                                                                                                                                            | `true`                                                                          |
+| `show_share`       | boolean | A bar of each element's share of the total                                                                                                                                                                                                                                                                                 | `false`                                                                         |
+| `show_bill`        | boolean | The bill, with the elements, their items, the tax and the total. Without it, a legend tells the colours of the chart and the share bar                                                                                                                                                                                     | `true`                                                                          |
+| `tax`              | string  | How tax is shown. `included` has it in every amount, `separate` shows amounts before tax and the tax on a row of its own, `none` leaves it out, the total included                                                                                                                                                         | `included`                                                                      |
+| `lines`            | string  | Which items the bill lists under their elements, `all`, only the `picked` ones, or `none`                                                                                                                                                                                                                                  | `all`                                                                           |
+| `hidden_elements`  | list    | Elements left out of the card, by their ids. A hidden element is out of the total, the chart and the estimate too. The editor lists them by name                                                                                                                                                                           |                                                                                 |
+| `picked_items`     | list    | Items given a [colour](#colours) of their own in the bill, the chart and the share bar, by their ids. The editor lists them by name                                                                                                                                                                                        |                                                                                 |
+| `height_mode`      | string  | How tall the card is. `auto` fits its content, `fixed` keeps it at `height`, `max` lets it grow up to `max_height`. In `fixed` and `max` the bill scrolls under the other parts. A height in grid rows, set in the layout tab of a sections view, is used instead                                                          | `fixed` when `height` is set, `max` when only `max_height` is, otherwise `auto` |
+| `height`           | number  | The card's height in pixels, for `fixed`                                                                                                                                                                                                                                                                                   |                                                                                 |
+| `max_height`       | number  | The card's greatest height in pixels, for `max`                                                                                                                                                                                                                                                                            |                                                                                 |
+| `row_step`         | string  | How the card rounds its height on automatic rows in a sections view, with `height_mode` `auto` or `max`. `full` rounds it up to whole rows, so the cards under it stay on the rows. `half` rounds it up to half rows, which saves space but can leave the cards under it half a row off the rows of the sections beside it | `full`                                                                          |
+| `scroll_indicator` | string  | How the bill shows that there is more when it scrolls in a card held to a height. `both` fades the edges where the bill runs on and shows a thin scrollbar, `fade` only fades the edges, `scrollbar` only shows the scrollbar                                                                                              | `both`                                                                          |
+
+Without the period switch and the arrows to earlier periods, the card's head is a single row of the site's name, the
+period and the total. Tapping the period there changes it to the next one the site follows.
+
+### The estimate
+
+For the period under way, the card estimates what the whole period will cost. It is what the period has cost so far,
+and the rest as it went in the previous period from the same point to its end. At noon on 12 November, a year's estimate is this year so far
+and last year from noon on 12 November to the end of December. A month borrows the rest from the month before it.
+
+The estimate needs the whole previous period in the statistics, so a month's comes in the second whole month after the
+site was added, and a year's in the second whole year. Until then, and for an hour, there is none. An earlier period
+is compared with the one before it instead.
+
+### The chart
+
+A day is drawn by its hours, a week and a month by their days and a year by its weeks, each bar stacked by element.
+A year's first and last weeks are cut at the year's ends. The bar under way is outlined. An hour has no chart. A
+fixed fee belongs to no single hour or day, so a fee of a period longer than a bar's is left out of the bars, and the
+card says how much they leave out.
+
+An item removed from the site stays in the earlier periods it has history in, listed under Removed items. The periods
+under way leave it out at once, and have it again once they have ended. It is left out of the average price, as the
+card can't tell whether it was a fixed fee.
+
+Pointing at a bar shows its cost by element and its consumption. Pressing a bar opens its own period, such as a day
+of a month, when the site follows that period.
+
+A line over the bars follows the consumption, so a dear hour with little use stands apart from a cheap one with much.
+It is drawn by what was used per hour, on a scale of its own whose top is in the chart's right corner. For energy in
+kWh that is the power in kW. The line is finer than the bars where the history allows. A week's line goes by the hour.
+A day's goes by five minutes, from the meter's own statistics, which Home Assistant keeps that fine only for as long as
+it keeps its history, and only for a meter with a state class. Other days go by the hour. The line's colour is the text's, or
+the theme's `--utility-cost-usage-color`.
+
+### Colours
+
+Each element has a colour of its own, in the bill, the chart and the share bar. An item picked in the options gets a
+shade of its element's colour, and the rest of the element stays in the element's own. The four element colours are
+used in turn and can be set in a theme.
+
+| Variable                 | Default                           |
+| ------------------------ | --------------------------------- |
+| `--utility-cost-color-1` | the theme's `--primary-color`     |
+| `--utility-cost-color-2` | Home Assistant's `--purple-color` |
+| `--utility-cost-color-3` | the theme's `--success-color`     |
+| `--utility-cost-color-4` | the theme's `--warning-color`     |
+
+### Sizes
+
+The card takes a whole section. On automatic rows in a sections view, it ends on whole rows, or on half rows with
+`row_step: half`, and any room left over is spread between its parts. Held to a height lower than its content, it
+keeps every other part whole and scrolls the bill.
+
 ## Examples
 
 An electricity contract on the spot price in Finland, with day and night transfer. The site follows
@@ -236,7 +339,23 @@ python3.14 -m venv .venv
 | `custom_components/utility_cost_tracker/history.py`     | The long-term statistics of every item               |
 | `custom_components/utility_cost_tracker/websocket.py`   | A site as a card reads it                            |
 | `custom_components/utility_cost_tracker/config_flow.py` | The site, its cost elements and its items            |
+| `custom_components/utility_cost_tracker/card.py`        | Serving the card and its dashboard resource          |
+| `custom_components/utility_cost_tracker/www/`           | The built card, committed                            |
+| `frontend/`                                             | The card's source, TypeScript and lit                |
 | `tests/`                                                | Tests, run with pytest and made-up meters and prices |
+
+The card is a project of its own in `frontend/`, and takes its version from the integration's `manifest.json`. Its
+checks need Node 22.13 or newer.
+
+```
+cd frontend
+npm install
+npm run check
+```
+
+`npm run check` type-checks, lints, checks the formatting, runs the tests and builds the card into
+`custom_components/utility_cost_tracker/www/`. A pre-commit hook refuses a built card that the staged sources don't
+build to. Switch it on once per clone with `git config core.hooksPath .githooks`.
 
 ## Support
 

@@ -123,6 +123,8 @@ class Tracker:
         self._listeners: list[Callable[[], None]] = []
         self._clock_listeners: list[Callable[[], None]] = []
         self._unsubscribe: list[CALLBACK_TYPE] = []
+        # The removed items with statistics, looked up once, as removing an item reloads the site.
+        self.removed: list[dict[str, str]] | None = None
 
     @property
     def site(self) -> Site:

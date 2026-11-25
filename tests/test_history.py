@@ -15,7 +15,7 @@ from pytest_homeassistant.common import MockConfigEntry
 from pytest_homeassistant.components.recorder.common import async_wait_recording_done
 from pytest_homeassistant.typing import WebSocketGenerator
 
-from custom_components.utility_cost_tracker.history import async_write, statistic_id
+from custom_components.utility_cost_tracker.history import async_removed, async_write, statistic_id
 from custom_components.utility_cost_tracker.tariff import HourSums
 
 from .conftest import METER, SPOT
@@ -83,6 +83,33 @@ async def test_a_removed_items_history_stays_and_gets_nothing_more(
     assert len(await changes(hass, statistic_id(entry, "spot", "cost"), "hour")) == 5
 
 
+async def test_the_card_is_told_of_a_removed_item_with_history(
+    recorder_mock: Recorder, hass: HomeAssistant, helsinki: None, entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    await two_days(hass, entry, freezer)
+
+    def items() -> list[str]:
+        return [item.item_id for item in entry.runtime_data.site.items]
+
+    assert await async_removed(hass, entry, items()) == []
+    hass.config_entries.async_remove_subentry(entry, "margin")
+    await hass.async_block_till_done()
+    assert await async_removed(hass, entry, items()) == [
+        {
+            "id": "margin",
+            "name": "Margin",
+            "cost_statistic": statistic_id(entry, "margin", "cost"),
+            "tax_statistic": statistic_id(entry, "margin", "tax"),
+        }
+    ]
+    # An item left without its element is out of the site as well, though its subentry stays.
+    hass.config_entries.async_remove_subentry(entry, "transfer")
+    await hass.async_block_till_done()
+    assert "basic" in entry.subentries
+    assert {"margin", "day", "basic"} <= {item["id"] for item in await async_removed(hass, entry, items())}
+    assert "spot" not in {item["id"] for item in await async_removed(hass, entry, items())}
+
+
 async def test_removing_the_site_removes_its_statistics(
     recorder_mock: Recorder, hass: HomeAssistant, helsinki: None, entry: MockConfigEntry, freezer: FrozenDateTimeFactory
 ) -> None:
@@ -130,6 +157,8 @@ async def test_the_card_reads_a_site_over_the_websocket(
     transfer = 4 if 7 <= now.hour < 22 else 2
     assert site["prices"]["total"] == pytest.approx((10.5 + transfer) * 1.255)
     assert site["price_scale"] == 100
+    assert site["meter"] == {"entity": METER, "factor": 1}
+    assert site["removed"] == []
     # The running sums, which the statistics are written from, and the hour they began in.
     assert site["since"] == now.replace(minute=0, second=0, microsecond=0).isoformat()
     assert site["sums"]["spot"] == pytest.approx({"amount": 0.2, "tax": 0.051})

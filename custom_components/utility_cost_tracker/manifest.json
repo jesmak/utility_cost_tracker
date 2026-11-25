@@ -9,6 +9,8 @@
   ],
   "config_flow": true,
   "dependencies": [
+    "http",
+    "lovelace",
     "websocket_api"
   ],
   "documentation": "https://github.com/jesmak/utility_cost_tracker",

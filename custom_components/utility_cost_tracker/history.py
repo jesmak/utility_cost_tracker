@@ -6,6 +6,8 @@ running sum since the site was added, which Home Assistant turns into the change
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.models import StatisticData, StatisticMeanType, StatisticMetaData
 from homeassistant.components.recorder.statistics import async_add_external_statistics, async_list_statistic_ids
@@ -56,6 +58,34 @@ def async_write(hass: HomeAssistant, entry: ConfigEntry, hours: list[HourSums]) 
             unit_of_measurement=unit,
         )
         async_add_external_statistics(hass, metadata, rows)
+
+
+async def async_removed(hass: HomeAssistant, entry: ConfigEntry, items: Iterable[str]) -> list[dict[str, str]]:
+    """The items with statistics that aren't among the site's `items` any more, each by the name it was last written with.
+
+    That is a removed item, and one left without its element, which the site leaves out too.
+    """
+    if "recorder" not in hass.config.components:
+        return []
+    prefix, suffix = statistic_id(entry, ""), f"_{COST}"
+    current = {item_id.lower() for item_id in items}
+    removed = []
+    for row in await async_list_statistic_ids(hass):
+        key = row["statistic_id"]
+        if not key.startswith(prefix) or not key.endswith(suffix):
+            continue
+        item_id = key[len(prefix) : -len(suffix)]
+        if item_id in current:
+            continue
+        removed.append(
+            {
+                "id": item_id,
+                "name": (row["name"] or item_id).removeprefix(f"{entry.title} "),
+                "cost_statistic": key,
+                "tax_statistic": f"{prefix}{item_id}_{TAX}",
+            }
+        )
+    return removed
 
 
 async def async_clear(hass: HomeAssistant, entry: ConfigEntry) -> None:
