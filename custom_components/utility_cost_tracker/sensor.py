@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import UtilityCostConfigEntry
 from .const import CONF_HUNDREDTH_SYMBOL, CONF_PRICE_UNIT, CONF_UNIT, CONF_UTILITY, DEFAULT_HUNDREDTH_SYMBOL, DOMAIN, ICONS
+from .tariff import KIND_FIXED_FEE, covers
 from .tracker import Tracker
 
 ELEMENT_VALUES = ("usage", "usage_with_tax", "tax", "total")
@@ -32,7 +33,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: UtilityCostConfigEntry, 
         entities += [ElementCost(tracker, subentry, period, value) for period in site.periods for value in ELEMENT_VALUES]
         entities.append(ElementPrice(tracker, subentry))
     for item in site.items:
-        entities += [ItemCost(tracker, entry.subentries[item.item_id], period) for period in site.periods]
+        # A fixed fee never lands in a period shorter than its own, so it gets no sensor for one.
+        periods = [period for period in site.periods if item.kind != KIND_FIXED_FEE or covers(period, item.fee_period)]
+        entities += [ItemCost(tracker, entry.subentries[item.item_id], period) for period in periods]
     # Every sensor is on the site's one device, as Home Assistant ties a device to a single subentry. So no sensor is
     # tied to a subentry, and the ones a removed item, element or period leaves behind are removed here.
     registry = er.async_get(hass)

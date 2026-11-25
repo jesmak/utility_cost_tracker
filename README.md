@@ -139,8 +139,9 @@ The sensors that start disabled are enabled on the device's page. Their costs ar
 enabled later shows its period so far, and its long-term statistics start from then.
 
 A fixed fee is added in full at the start of its period, whatever the consumption. It shows only in the sensors of
-its own period and longer ones, so a monthly fee is in the month's and the year's sensors but not in the day's or the
-hour's. A fee added in the middle of its period is added at once, as it is due for that period.
+its own period and longer ones, so a monthly fee is in the month's and the year's totals but not in the week's, the
+day's or the hour's. The fee's own sensors exist only for those periods too, so a monthly fee has a sensor for the
+month and the year. A fee added in the middle of its period is added at once, as it is due for that period.
 
 A yearly fee is likewise only in the year's sensors. A fee that a contract states per year but bills every month, as
 district heating's basic fee often is, is entered as a monthly fee of a twelfth of it, so the months show it too.

@@ -56,7 +56,9 @@ async def test_counts_each_part_and_the_totals(hass: HomeAssistant, entry: MockC
     assert sensor(hass, f"{id_}_transfer_usage_day") == pytest.approx(0.08)
     # The monthly fee shows in the month, never in the day or hour.
     assert sensor(hass, f"{id_}_basic_month") == pytest.approx(10.0)
-    assert sensor(hass, f"{id_}_basic_day") == 0
+    registry = er.async_get(hass)
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{id_}_basic_day") is None
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{id_}_basic_hour") is None
     assert sensor(hass, f"{id_}_energy_usage_with_tax_day") == pytest.approx(0.41 * 1.255)
     assert sensor(hass, f"{id_}_transfer_total_month") == pytest.approx((0.08 + 10.0) * 1.255)
     assert sensor(hass, f"{id_}_total_month") == pytest.approx((0.41 + 0.08 + 10.0) * 1.255)
