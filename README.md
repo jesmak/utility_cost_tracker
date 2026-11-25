@@ -149,6 +149,18 @@ district heating's basic fee often is, is entered as a monthly fee of a twelfth 
 
 The price sensors leave out items with a separate meter, as those aren't priced per unit of the site's meter.
 
+### How consumption is priced
+
+Each time the meter reports a new reading, the consumption since its previous reading is priced at the prices in force
+at that moment. The integration knows nothing of price periods, so a spot price that changes every hour, every 15
+minutes or at any other pace works the same way.
+
+How exactly the costs follow a changing price depends on how often the meter reports. A meter that reports every few
+seconds puts practically all consumption on the right price. One that reports once an hour has each hour's consumption
+priced at the price in force when its reading arrives, which a spot price changing every 15 minutes makes coarse.
+
+Consumption from while Home Assistant was down is priced as one reading when it is back, at the prices in force then.
+
 ## Examples
 
 An electricity contract on the spot price in Finland, with day and night transfer. The site follows
