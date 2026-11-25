@@ -28,6 +28,8 @@ import { LINES, TAX_MODES, shows } from "./types";
 import type { Site, UtilityCostCardConfig } from "./types";
 
 const HOUR_MS = 3_600_000;
+/** A chart with more bars than this has a narrower gap between them. */
+const DENSE_FROM = 40;
 
 /** The smallest of 1, 2, 2.5 and 5 times a power of ten that is at least the value. */
 function niceUp(value: number): number {
@@ -559,11 +561,13 @@ export class UtilityCostCard extends LitElement {
                 <span class="unit">${unit}</span>
                 ${step ? ticks.map((tick) => html`<span style="bottom: ${(tick / cost.steps) * 100}%">${this.number(tick * step, 0, decimals(step))}</span>`) : nothing}
             </div>`;
+        const dense = columns.length > DENSE_FROM;
+        const gap = dense ? 1 : 2;
         return html`<div class="part chart ${most > 0 ? "lined" : ""}">
             <div class="plot">
                 ${side(currency, cost.step, "cost")}
                 <div
-                    class="bars ${columns.length > 40 ? "dense" : ""}"
+                    class="bars ${dense ? "dense" : ""}"
                     role="group"
                     aria-label=${this.text("card.chart")}
                     @pointermove=${(event: PointerEvent) => this.hover(event, columns.length)}
@@ -607,7 +611,16 @@ export class UtilityCostCard extends LitElement {
                 </div>
                 ${most > 0 ? side(this.rateUnit(site), rate.step, "rate") : nothing}
             </div>
-            <div class="axis">${this.axis(view, part).map((label) => html`<span>${label}</span>`)}</div>
+            <div class="axis">
+                ${this.axis(view, part).map(
+                    (entry) =>
+                        // The bars' gaps are between them only, so a bar's middle isn't quite its share of the width.
+                        html`<span
+                            style="left: calc((100% + ${gap}px) * ${((entry.place + 0.5) / columns.length).toFixed(4)} - ${gap / 2}px)"
+                            >${entry.label}</span
+                        >`,
+                )}
+            </div>
             <div class="note">
                 ${Math.abs(fees) > 0.005 ? this.text("card.fees_not_in_bars").replace("{amount}", this.money(site, fees)) : nothing}
             </div>
@@ -809,21 +822,32 @@ export class UtilityCostCard extends LitElement {
         return date(column.start, { weekday: "short", day: "numeric", month: "numeric" });
     }
 
-    /** A few labels spread evenly under the bars: hours of a day, weekdays, days of a month, the months a year's weeks are in. */
-    private axis(view: View, part: Period): string[] {
+    /**
+     * A few labels under the bars, each with the place of the bar it is under: every sixth hour of a day, weekdays, days
+     * of a month, the months a year's weeks are in.
+     */
+    private axis(view: View, part: Period): { place: number; label: string }[] {
         const columns = view.columns ?? [];
         const format = (options: Intl.DateTimeFormatOptions) =>
             new Intl.DateTimeFormat(this.language(), { ...options, timeZone: this.zone() });
+        const under = (place: number, label: string) => ({ place, label });
         if (part === "hour") {
-            return ["0", "6", "12", "18", "24"];
+            // By the clock's hour, as a day has 23 or 25 bars when the clocks change. The last bar is named too, so the
+            // labels reach both ends.
+            const hour = new Intl.DateTimeFormat("en", { hour: "numeric", hourCycle: "h23", timeZone: this.zone() });
+            return columns
+                .map((column, place) => under(place, String(Number(hour.format(column.start)))))
+                .filter((entry) => Number(entry.label) % 6 === 0 || entry.place === columns.length - 1);
         }
         if (view.period === "week") {
             const weekday = format({ weekday: "short" });
-            return columns.map((column) => weekday.format(column.start));
+            return columns.map((column, place) => under(place, weekday.format(column.start)));
         }
         const label = view.period === "year" ? format({ month: "short" }) : format({ day: "numeric" });
         const last = columns.length - 1;
-        return [0, 1, 2, 3, 4].map((step) => label.format(columns[Math.round((step * last) / 4)].start));
+        return [0, 1, 2, 3, 4]
+            .map((step) => Math.round((step * last) / 4))
+            .map((place) => under(place, label.format(columns[place].start)));
     }
 
     private heading(site: Site): string {
@@ -1435,8 +1459,7 @@ export class UtilityCostCard extends LitElement {
                     vector-effect: non-scaling-stroke;
                 }
                 .axis {
-                    display: flex;
-                    justify-content: space-between;
+                    position: relative;
                     margin-left: var(--scale);
                     /* The labels sit low in their row, clear of the mark under the part under way. */
                     box-sizing: border-box;
@@ -1445,6 +1468,12 @@ export class UtilityCostCard extends LitElement {
                     line-height: 13px;
                     font-size: 10.5px;
                     color: var(--secondary-text-color);
+                }
+                /* Each label is centred under its own bar. */
+                .axis span {
+                    position: absolute;
+                    transform: translateX(-50%);
+                    white-space: nowrap;
                 }
                 .lined .axis {
                     margin-right: var(--scale);

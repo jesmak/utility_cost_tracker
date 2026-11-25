@@ -269,6 +269,30 @@ describe("the card", () => {
         expect(rows(element, ".scale.rate")).toEqual(["kWh/h 0.001 0.0005"]);
     });
 
+    it("has each axis label centred under the bar it names", async () => {
+        const element = await card({ show_estimate: false });
+        // November has 30 bars, labelled under the 1st, 8th, 16th, 23rd and 30th.
+        const month = all(element, ".axis span").map((label) => [label.textContent?.trim(), label.getAttribute("style")]);
+        const at = (share: string) => `left: calc((100% + 2px) * ${share} - 1px)`;
+        expect(month).toEqual([
+            ["1", at("0.0167")],
+            ["8", at("0.2500")],
+            ["16", at("0.5167")],
+            ["23", at("0.7500")],
+            ["30", at("0.9833")],
+        ]);
+        all(element, ".periods button")[0].click();
+        await settled(element);
+        const day = all(element, ".axis span").map((label) => [label.textContent?.trim(), label.getAttribute("style")]);
+        expect(day).toEqual([
+            ["0", at("0.0208")],
+            ["6", at("0.2708")],
+            ["12", at("0.5208")],
+            ["18", at("0.7708")],
+            ["23", at("0.9792")],
+        ]);
+    });
+
     it("tells what a bar holds under the pointer, and opens the bar's own period when it is pressed", async () => {
         const element = await card({ show_estimate: false });
         const plot = all(element, ".bars")[0];

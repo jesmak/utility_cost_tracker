@@ -1583,6 +1583,7 @@ if (!customElements.get("utility-cost-card-editor")) {
 
 // src/utility-cost-card.ts
 var HOUR_MS3 = 36e5;
+var DENSE_FROM = 40;
 function niceUp(value) {
   if (!(value > 0)) {
     return 0;
@@ -2005,11 +2006,13 @@ var UtilityCostCard = class extends i4 {
                 <span class="unit">${unit}</span>
                 ${step2 ? ticks.map((tick) => b2`<span style="bottom: ${tick / cost.steps * 100}%">${this.number(tick * step2, 0, decimals(step2))}</span>`) : A}
             </div>`;
+    const dense = columns.length > DENSE_FROM;
+    const gap = dense ? 1 : 2;
     return b2`<div class="part chart ${most > 0 ? "lined" : ""}">
             <div class="plot">
                 ${side(currency, cost.step, "cost")}
                 <div
-                    class="bars ${columns.length > 40 ? "dense" : ""}"
+                    class="bars ${dense ? "dense" : ""}"
                     role="group"
                     aria-label=${this.text("card.chart")}
                     @pointermove=${(event) => this.hover(event, columns.length)}
@@ -2044,7 +2047,17 @@ var UtilityCostCard = class extends i4 {
                 </div>
                 ${most > 0 ? side(this.rateUnit(site), rate.step, "rate") : A}
             </div>
-            <div class="axis">${this.axis(view, part).map((label) => b2`<span>${label}</span>`)}</div>
+            <div class="axis">
+                ${this.axis(view, part).map(
+      (entry) => (
+        // The bars' gaps are between them only, so a bar's middle isn't quite its share of the width.
+        b2`<span
+                            style="left: calc((100% + ${gap}px) * ${((entry.place + 0.5) / columns.length).toFixed(4)} - ${gap / 2}px)"
+                            >${entry.label}</span
+                        >`
+      )
+    )}
+            </div>
             <div class="note">
                 ${Math.abs(fees) > 5e-3 ? this.text("card.fees_not_in_bars").replace("{amount}", this.money(site, fees)) : A}
             </div>
@@ -2204,20 +2217,25 @@ var UtilityCostCard = class extends i4 {
     }
     return date(column.start, { weekday: "short", day: "numeric", month: "numeric" });
   }
-  /** A few labels spread evenly under the bars: hours of a day, weekdays, days of a month, the months a year's weeks are in. */
+  /**
+   * A few labels under the bars, each with the place of the bar it is under: every sixth hour of a day, weekdays, days
+   * of a month, the months a year's weeks are in.
+   */
   axis(view, part) {
     const columns = view.columns ?? [];
     const format = (options) => new Intl.DateTimeFormat(this.language(), { ...options, timeZone: this.zone() });
+    const under = (place, label2) => ({ place, label: label2 });
     if (part === "hour") {
-      return ["0", "6", "12", "18", "24"];
+      const hour = new Intl.DateTimeFormat("en", { hour: "numeric", hourCycle: "h23", timeZone: this.zone() });
+      return columns.map((column, place) => under(place, String(Number(hour.format(column.start))))).filter((entry) => Number(entry.label) % 6 === 0 || entry.place === columns.length - 1);
     }
     if (view.period === "week") {
       const weekday = format({ weekday: "short" });
-      return columns.map((column) => weekday.format(column.start));
+      return columns.map((column, place) => under(place, weekday.format(column.start)));
     }
     const label = view.period === "year" ? format({ month: "short" }) : format({ day: "numeric" });
     const last = columns.length - 1;
-    return [0, 1, 2, 3, 4].map((step2) => label.format(columns[Math.round(step2 * last / 4)].start));
+    return [0, 1, 2, 3, 4].map((step2) => Math.round(step2 * last / 4)).map((place) => under(place, label.format(columns[place].start)));
   }
   heading(site) {
     return this.config?.title || site.name;
@@ -2796,8 +2814,7 @@ var UtilityCostCard = class extends i4 {
                     vector-effect: non-scaling-stroke;
                 }
                 .axis {
-                    display: flex;
-                    justify-content: space-between;
+                    position: relative;
                     margin-left: var(--scale);
                     /* The labels sit low in their row, clear of the mark under the part under way. */
                     box-sizing: border-box;
@@ -2806,6 +2823,12 @@ var UtilityCostCard = class extends i4 {
                     line-height: 13px;
                     font-size: 10.5px;
                     color: var(--secondary-text-color);
+                }
+                /* Each label is centred under its own bar. */
+                .axis span {
+                    position: absolute;
+                    transform: translateX(-50%);
+                    white-space: nowrap;
                 }
                 .lined .axis {
                     margin-right: var(--scale);
