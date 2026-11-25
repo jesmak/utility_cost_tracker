@@ -40,6 +40,17 @@ function niceUp(value: number): number {
     return (lead <= 1.000001 ? 1 : lead <= 2.000001 ? 2 : lead <= 2.500001 ? 2.5 : lead <= 5.000001 ? 5 : 10) * power;
 }
 
+/** The decimals a scale's numbers need for its step to show, as 0.0005 and 0.001 are both 0.001 at three. */
+function decimals(step: number): number {
+    if (!(step > 0)) {
+        return 0;
+    }
+    const power = Math.floor(Math.log10(step));
+    // A step of 2.5 has one decimal more than its power of ten.
+    const half = Math.abs(step / 10 ** power - 2.5) < 0.001 ? 1 : 0;
+    return Math.min(Math.max(-power + half, 0), 6);
+}
+
 /** A scale of two to four round steps that reaches the value. */
 function scale(value: number): { step: number; steps: number } {
     const step = niceUp(value / 3);
@@ -546,7 +557,7 @@ export class UtilityCostCard extends LitElement {
         const side = (unit: string, step: number, kind: string) =>
             html`<div class="scale ${kind}" aria-hidden="true">
                 <span class="unit">${unit}</span>
-                ${step ? ticks.map((tick) => html`<span style="bottom: ${(tick / cost.steps) * 100}%">${this.number(tick * step, 0, 3)}</span>`) : nothing}
+                ${step ? ticks.map((tick) => html`<span style="bottom: ${(tick / cost.steps) * 100}%">${this.number(tick * step, 0, decimals(step))}</span>`) : nothing}
             </div>`;
         return html`<div class="part chart ${most > 0 ? "lined" : ""}">
             <div class="plot">
@@ -1399,7 +1410,7 @@ export class UtilityCostCard extends LitElement {
                     position: absolute;
                     left: 0;
                     right: 0;
-                    bottom: -5px;
+                    bottom: -3px;
                     height: 2px;
                     border-radius: 1px;
                     background: var(--primary-text-color);
@@ -1427,8 +1438,11 @@ export class UtilityCostCard extends LitElement {
                     display: flex;
                     justify-content: space-between;
                     margin-left: var(--scale);
+                    /* The labels sit low in their row, clear of the mark under the part under way. */
+                    box-sizing: border-box;
                     height: 18px;
-                    line-height: 18px;
+                    padding-top: 5px;
+                    line-height: 13px;
                     font-size: 10.5px;
                     color: var(--secondary-text-color);
                 }

@@ -247,6 +247,28 @@ describe("the card", () => {
         expect(all(await card({ show_bill: false }, answers), ".estimate")).toHaveLength(1);
     });
 
+    it("gives a scale's numbers the decimals its step needs, however small the amounts", async () => {
+        // Half a thousandth of a kWh in the month's first day, on a site whose bars are all empty.
+        const answers = {
+            ...hass(),
+            callWS: async <T>(message: Record<string, unknown>) =>
+                (message.type === "utility_cost_tracker/site"
+                    ? site()
+                    : {
+                          "utility_cost_tracker:home_consumption": [
+                              {
+                                  start: Date.parse(message.start_time as string),
+                                  end: Date.parse(message.start_time as string) + 24 * 3_600_000,
+                                  change: 0.024,
+                                  sum: 0.024,
+                              },
+                          ],
+                      }) as T,
+        };
+        const element = await card({ show_estimate: false }, answers);
+        expect(rows(element, ".scale.rate")).toEqual(["kWh/h 0.001 0.0005"]);
+    });
+
     it("tells what a bar holds under the pointer, and opens the bar's own period when it is pressed", async () => {
         const element = await card({ show_estimate: false });
         const plot = all(element, ".bars")[0];

@@ -1591,6 +1591,14 @@ function niceUp(value) {
   const lead = value / power;
   return (lead <= 1.000001 ? 1 : lead <= 2.000001 ? 2 : lead <= 2.500001 ? 2.5 : lead <= 5.000001 ? 5 : 10) * power;
 }
+function decimals(step2) {
+  if (!(step2 > 0)) {
+    return 0;
+  }
+  const power = Math.floor(Math.log10(step2));
+  const half = Math.abs(step2 / 10 ** power - 2.5) < 1e-3 ? 1 : 0;
+  return Math.min(Math.max(-power + half, 0), 6);
+}
 function scale(value) {
   const step2 = niceUp(value / 3);
   return { step: step2, steps: step2 ? Math.max(Math.ceil(value / step2 - 1e-9), 2) : 2 };
@@ -1995,7 +2003,7 @@ var UtilityCostCard = class extends i4 {
     const currency = new Intl.NumberFormat(this.language(), { style: "currency", currency: site.currency }).formatToParts(0).find((piece) => piece.type === "currency")?.value ?? site.currency;
     const side = (unit, step2, kind) => b2`<div class="scale ${kind}" aria-hidden="true">
                 <span class="unit">${unit}</span>
-                ${step2 ? ticks.map((tick) => b2`<span style="bottom: ${tick / cost.steps * 100}%">${this.number(tick * step2, 0, 3)}</span>`) : A}
+                ${step2 ? ticks.map((tick) => b2`<span style="bottom: ${tick / cost.steps * 100}%">${this.number(tick * step2, 0, decimals(step2))}</span>`) : A}
             </div>`;
     return b2`<div class="part chart ${most > 0 ? "lined" : ""}">
             <div class="plot">
@@ -2763,7 +2771,7 @@ var UtilityCostCard = class extends i4 {
                     position: absolute;
                     left: 0;
                     right: 0;
-                    bottom: -5px;
+                    bottom: -3px;
                     height: 2px;
                     border-radius: 1px;
                     background: var(--primary-text-color);
@@ -2791,8 +2799,11 @@ var UtilityCostCard = class extends i4 {
                     display: flex;
                     justify-content: space-between;
                     margin-left: var(--scale);
+                    /* The labels sit low in their row, clear of the mark under the part under way. */
+                    box-sizing: border-box;
                     height: 18px;
-                    line-height: 18px;
+                    padding-top: 5px;
+                    line-height: 13px;
                     font-size: 10.5px;
                     color: var(--secondary-text-color);
                 }
