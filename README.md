@@ -123,17 +123,20 @@ the long-term statistics keep every period's cost. Each exists once for each per
 (Total today, Total this month). The price sensors are in the site's price unit per the meter's unit, such as EUR/kWh,
 or c/kWh when prices are typed in hundredths.
 
-| Sensor                           | What it shows                                                          |
-| -------------------------------- | ---------------------------------------------------------------------- |
-| _Item_ today                     | The item's cost before tax                                             |
-| _Element_ usage before tax today | The element's items priced per unit, before tax and without fixed fees |
-| _Element_ usage with tax today   | The same with the tax                                                  |
-| _Element_ tax today              | The element's tax, fixed fees included                                 |
-| _Element_ total today            | All of the element's items, fixed fees included, with tax              |
-| Tax today                        | The site's taxes                                                       |
-| Total today                      | The site's total                                                       |
-| _Element_ price now              | The element's price per unit of the site's meter now, with tax         |
-| Price now                        | The site's price per unit now, with tax                                |
+| Sensor                           | What it shows                                                          | Enabled |
+| -------------------------------- | ---------------------------------------------------------------------- | ------- |
+| _Item_ today                     | The item's cost before tax                                             | yes     |
+| _Element_ usage before tax today | The element's items priced per unit, before tax and without fixed fees | no      |
+| _Element_ usage with tax today   | The same with the tax                                                  | no      |
+| _Element_ tax today              | The element's tax, fixed fees included                                 | no      |
+| _Element_ total today            | All of the element's items, fixed fees included, with tax              | yes     |
+| Tax today                        | The site's taxes                                                       | no      |
+| Total today                      | The site's total                                                       | yes     |
+| _Element_ price now              | The element's price per unit of the site's meter now, with tax         | yes     |
+| Price now                        | The site's price per unit now, with tax                                | yes     |
+
+The sensors that start disabled are enabled on the device's page. Their costs are counted all the same, so a sensor
+enabled later shows its period so far, and its long-term statistics start from then.
 
 A fixed fee is added in full at the start of its period, whatever the consumption. It shows only in the sensors of
 its own period and longer ones, so a monthly fee is in the month's and the year's sensors but not in the day's or the

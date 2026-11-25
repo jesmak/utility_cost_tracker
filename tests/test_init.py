@@ -19,7 +19,7 @@ from .conftest import METER, SPOT
 
 TZ = ZoneInfo("Europe/Helsinki")
 
-pytestmark = pytest.mark.usefixtures("helsinki")
+pytestmark = pytest.mark.usefixtures("helsinki", "entity_registry_enabled_by_default")
 
 
 def sensor(hass: HomeAssistant, unique_id: str) -> float | None:

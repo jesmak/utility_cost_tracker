@@ -17,6 +17,9 @@ from .tracker import Tracker
 
 ELEMENT_VALUES = ("usage", "usage_with_tax", "tax", "total")
 SITE_VALUES = ("tax", "total")
+# The breakdowns of an element and the site's tax start disabled, so a site doesn't begin with a sensor for everything.
+# Their totals are counted all the same, so one enabled later shows its period so far.
+ENABLED_BY_DEFAULT = ("total",)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: UtilityCostConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
@@ -81,6 +84,7 @@ class SiteCost(CostSensor):
         super().__init__(tracker, value, period)
         self._value = value
         self._attr_translation_key = f"site_{value}_{period}"
+        self._attr_entity_registry_enabled_default = value in ENABLED_BY_DEFAULT
 
     @property
     def native_value(self) -> float:
@@ -94,6 +98,7 @@ class ElementCost(CostSensor):
         self._element_id = subentry.subentry_id
         self._value = value
         self._attr_translation_key = f"element_{value}_{period}"
+        self._attr_entity_registry_enabled_default = value in ENABLED_BY_DEFAULT
         self._attr_translation_placeholders = {"name": subentry.title}
 
     @property
