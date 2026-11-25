@@ -32,12 +32,12 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .const import (
     CONF_ADDEND,
-    CONF_CENTS,
     CONF_CONSUMPTION_ENTITY,
     CONF_ELEMENT,
     CONF_END,
     CONF_FACTOR,
     CONF_FEE_PERIOD,
+    CONF_HUNDREDTH_SYMBOL,
     CONF_INCLUDES_TAX,
     CONF_KIND,
     CONF_MONTHS,
@@ -45,6 +45,7 @@ from .const import (
     CONF_PERIODS,
     CONF_PRICE,
     CONF_PRICE_ENTITY,
+    CONF_PRICE_UNIT,
     CONF_START,
     CONF_TAX,
     CONF_TAXED,
@@ -53,8 +54,10 @@ from .const import (
     CONF_UTILITY,
     CONF_WEEKDAYS,
     CONF_WINDOW,
+    DEFAULT_HUNDREDTH_SYMBOL,
     DEFAULT_PERIODS,
     DOMAIN,
+    PRICE_UNITS,
     SUBENTRY_ELEMENT,
     SUBENTRY_ITEM,
     UTILITIES,
@@ -87,7 +90,8 @@ def site_schema(defaults: dict[str, Any], creating: bool) -> vol.Schema:
             vol.Required(CONF_CONSUMPTION_ENTITY, default=defaults.get(CONF_CONSUMPTION_ENTITY)): SENSOR,
             vol.Required(CONF_FACTOR, default=defaults.get(CONF_FACTOR, 1)): DECIMAL,
             vol.Required(CONF_PERIODS, default=defaults.get(CONF_PERIODS, DEFAULT_PERIODS)): choice(PERIODS, "period", True),
-            vol.Required(CONF_CENTS, default=defaults.get(CONF_CENTS, False)): BooleanSelector(),
+            vol.Required(CONF_PRICE_UNIT, default=defaults.get(CONF_PRICE_UNIT, "currency")): choice(PRICE_UNITS, "price_unit"),
+            vol.Required(CONF_HUNDREDTH_SYMBOL, default=defaults.get(CONF_HUNDREDTH_SYMBOL, DEFAULT_HUNDREDTH_SYMBOL)): TextSelector(),
         }
     )
     return vol.Schema(fields)
@@ -123,6 +127,8 @@ class UtilityCostConfigFlow(ConfigFlow, domain=DOMAIN):
             errors[CONF_PERIODS] = "no_periods"
         if user_input[CONF_FACTOR] <= 0:
             errors[CONF_FACTOR] = "not_positive"
+        if user_input[CONF_PRICE_UNIT] == "hundredths" and not user_input[CONF_HUNDREDTH_SYMBOL].strip():
+            errors[CONF_HUNDREDTH_SYMBOL] = "no_symbol"
         return errors
 
     def _with_unit(self, user_input: dict[str, Any]) -> dict[str, Any]:

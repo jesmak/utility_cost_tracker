@@ -10,7 +10,8 @@
           "consumption_entity": "Meter",
           "factor": "Conversion factor",
           "periods": "Periods",
-          "cents": "Enter prices in cents"
+          "price_unit": "Price unit",
+          "hundredth_symbol": "Symbol for hundredths"
         },
         "data_description": {
           "name": "Such as Home electricity.",
@@ -18,7 +19,8 @@
           "consumption_entity": "The sensor with the meter's running total, such as the energy bought in kWh or the water used in m³.",
           "factor": "The meter reading is multiplied by this before any price. Leave it at 1 unless the reading needs converting, such as gas from m³ to kWh.",
           "periods": "Every cost gets a sensor for each period you choose.",
-          "cents": "Type prices in cents per unit, such as 2.267 c/kWh instead of 0.02267 €/kWh. Costs and prices are still shown in euros, or whatever your currency is."
+          "price_unit": "Whether you type prices in your currency or in its hundredths, such as cents per kWh. The price sensors show prices in the same unit. Costs are always in the currency set in Home Assistant.",
+          "hundredth_symbol": "Such as c, öre or p. Only used when prices are in hundredths."
         }
       },
       "reconfigure": {
@@ -29,20 +31,23 @@
           "consumption_entity": "Meter",
           "factor": "Conversion factor",
           "periods": "Periods",
-          "cents": "Enter prices in cents"
+          "price_unit": "Price unit",
+          "hundredth_symbol": "Symbol for hundredths"
         },
         "data_description": {
           "utility": "Sets the icon of the sensors.",
           "consumption_entity": "The sensor with the meter's running total, such as the energy bought in kWh or the water used in m³.",
           "factor": "The meter reading is multiplied by this before any price. Leave it at 1 unless the reading needs converting, such as gas from m³ to kWh.",
           "periods": "Every cost gets a sensor for each period you choose.",
-          "cents": "Type prices in cents per unit, such as 2.267 c/kWh instead of 0.02267 €/kWh. Costs and prices are still shown in euros, or whatever your currency is."
+          "price_unit": "Whether you type prices in your currency or in its hundredths, such as cents per kWh. The price sensors show prices in the same unit. Costs are always in the currency set in Home Assistant.",
+          "hundredth_symbol": "Such as c, öre or p. Only used when prices are in hundredths."
         }
       }
     },
     "error": {
       "no_periods": "Choose at least one period.",
-      "not_positive": "The factor has to be more than zero."
+      "not_positive": "The factor has to be more than zero.",
+      "no_symbol": "Give a symbol for hundredths when prices are in hundredths."
     },
     "abort": {
       "reconfigure_successful": "Saved."
@@ -122,7 +127,7 @@
         },
         "sensor": {
           "title": "Price per unit from a sensor",
-          "description": "Such as a spot price. The price used is the sensor's value times the multiplier, plus the addition.",
+          "description": "Such as a spot price. The multiplier converts the sensor's value to the unit of your other prices, and the addition adds a fixed part to it, such as a margin.",
           "data": {
             "name": "Name",
             "element": "Cost element",
@@ -136,7 +141,7 @@
             "factor": "Conversion factor"
           },
           "data_description": {
-            "multiplier": "Converts the sensor's value to the unit you type prices in, such as 100 to turn €/kWh into c/kWh. Otherwise leave it at 1.",
+            "multiplier": "Converts the sensor's value to the unit you type prices in, such as 100 when the sensor's price is in the currency and your other prices are in hundredths. Otherwise leave it at 1.",
             "addend": "Added after the multiplier. Otherwise leave it at 0.",
             "taxed": "The cost element's tax rate is added to this.",
             "includes_tax": "Turn this on if the sensor's price, and the addition, already include tax.",
@@ -157,7 +162,7 @@
             "includes_tax": "Amount includes tax"
           },
           "data_description": {
-            "price": "Use a negative amount for a credit.",
+            "price": "In your currency, also when prices are typed in hundredths. Use a negative amount for a credit.",
             "taxed": "The cost element's tax rate is added to this.",
             "includes_tax": "Turn this on if you're typing the amount with tax, the way your contract or bill shows it."
           }
@@ -227,6 +232,12 @@
         "wastewater": "Wastewater",
         "gas": "Gas",
         "costs": "Costs"
+      }
+    },
+    "price_unit": {
+      "options": {
+        "currency": "Currency",
+        "hundredths": "Hundredths of the currency"
       }
     },
     "timing": {

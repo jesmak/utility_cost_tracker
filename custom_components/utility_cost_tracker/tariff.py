@@ -109,7 +109,7 @@ class Site:
     consumption_entity: str
     periods: tuple[str, ...]
     factor: float = 1.0
-    # Prices are entered in the currency's hundredths (cents per kWh) when this is 0.01.
+    # Prices per unit are entered in the currency's hundredths (cents or öre per kWh) when this is 0.01.
     scale: float = 1.0
     elements: tuple[Element, ...] = ()
     items: tuple[Item, ...] = ()
@@ -133,8 +133,9 @@ class Site:
         return element.tax / 100
 
     def before_tax(self, item: Item, price: float) -> float:
-        """The entered price as currency before tax."""
-        price *= self.scale
+        """The entered price as currency before tax. A fixed fee is always entered in the currency."""
+        if item.kind in UNIT_KINDS:
+            price *= self.scale
         return price / (1 + self.tax_rate(item)) if item.includes_tax else price
 
     def applies(self, item: Item, moment: datetime) -> bool:

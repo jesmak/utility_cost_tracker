@@ -36,7 +36,8 @@ def entry() -> MockConfigEntry:
             "consumption_entity": METER,
             "factor": 1,
             "periods": ["hour", "day", "month"],
-            "cents": True,
+            "price_unit": "hundredths",
+            "hundredth_symbol": "c",
             "unit": "kWh",
         },
         subentries_data=[
@@ -48,7 +49,7 @@ def entry() -> MockConfigEntry:
                 "day", "Day transfer", {"element": "transfer", "kind": "constant", "price": 4.0, "timing": "window", "window": DAY_WINDOW}
             ),
             item("night", "Night transfer", {"element": "transfer", "kind": "constant", "price": 2.0, "timing": "other_times"}),
-            item("basic", "Basic fee", {"element": "transfer", "kind": "fixed_fee", "price": 1000, "fee_period": "month"}),
+            item("basic", "Basic fee", {"element": "transfer", "kind": "fixed_fee", "price": 10, "fee_period": "month"}),
         ],
     )
 

@@ -61,7 +61,10 @@ async def test_counts_each_part_and_the_totals(hass: HomeAssistant, entry: MockC
     assert sensor(hass, f"{id_}_transfer_total_month") == pytest.approx((0.08 + 10.0) * 1.255)
     assert sensor(hass, f"{id_}_total_month") == pytest.approx((0.41 + 0.08 + 10.0) * 1.255)
     assert sensor(hass, f"{id_}_tax_day") == pytest.approx((0.41 + 0.08) * 0.255)
-    assert sensor(hass, f"{id_}_price") == pytest.approx((20.5 + 4.0) * 0.01 * 1.255)
+    # The site types its prices in hundredths, so its price sensors show them in hundredths too.
+    assert sensor(hass, f"{id_}_price") == pytest.approx((20.5 + 4.0) * 1.255)
+    price = hass.states.get(er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{id_}_price"))
+    assert price.attributes["unit_of_measurement"] == "c/kWh"
 
     state = hass.states.get(er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{id_}_total_month"))
     assert state.attributes["unit_of_measurement"] == "EUR"
@@ -158,7 +161,9 @@ async def test_removing_an_item_removes_its_sensors(hass: HomeAssistant, entry: 
 
 
 async def test_the_price_unit_comes_from_the_meter_when_the_site_was_saved_without_one(hass: HomeAssistant, entry: MockConfigEntry) -> None:
-    entry = MockConfigEntry(domain=DOMAIN, title=entry.title, data={**entry.data, "unit": None}, subentries_data=[])
+    entry = MockConfigEntry(
+        domain=DOMAIN, title=entry.title, data={**entry.data, "unit": None, "price_unit": "currency"}, subentries_data=[]
+    )
     hass.states.async_set(SPOT, "0.2")
     await meter(hass, 1000)
     await setup(hass, entry)

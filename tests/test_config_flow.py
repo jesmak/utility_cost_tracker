@@ -11,7 +11,15 @@ from custom_components.utility_cost_tracker.const import DOMAIN
 
 from .conftest import METER, SPOT
 
-SITE = {"name": "Example home", "utility": "electricity", "consumption_entity": METER, "factor": 1, "periods": ["day"], "cents": True}
+SITE = {
+    "name": "Example home",
+    "utility": "electricity",
+    "consumption_entity": METER,
+    "factor": 1,
+    "periods": ["day"],
+    "price_unit": "hundredths",
+    "hundredth_symbol": "snt",
+}
 
 
 async def start_item(hass: HomeAssistant, entry: MockConfigEntry, kind: str) -> dict:
@@ -37,7 +45,8 @@ async def test_a_site_starts_with_its_utility_s_elements_in_the_user_s_language(
         "consumption_entity": METER,
         "factor": 1,
         "periods": ["day"],
-        "cents": True,
+        "price_unit": "hundredths",
+        "hundredth_symbol": "snt",
         "unit": "kWh",
     }
     entry = result["result"]
@@ -57,7 +66,15 @@ async def test_reconfiguring_the_site(hass: HomeAssistant, entry: MockConfigEntr
     entry.add_to_hass(hass)
     result = await entry.start_reconfigure_flow(hass)
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"utility": "water", "consumption_entity": METER, "factor": 0.5, "periods": ["year"], "cents": False}
+        result["flow_id"],
+        {
+            "utility": "water",
+            "consumption_entity": METER,
+            "factor": 0.5,
+            "periods": ["year"],
+            "price_unit": "currency",
+            "hundredth_symbol": "",
+        },
     )
     assert result["reason"] == "reconfigure_successful"
     assert entry.data["factor"] == 0.5
@@ -160,3 +177,9 @@ async def test_reconfiguring_a_window_shows_it_and_leaving_it_drops_it(hass: Hom
     assert result["reason"] == "reconfigure_successful"
     await hass.async_block_till_done()
     assert "window" not in entry.subentries["day"].data
+
+
+async def test_hundredths_need_a_symbol(hass: HomeAssistant) -> None:
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**SITE, "hundredth_symbol": " "})
+    assert result["errors"] == {"hundredth_symbol": "no_symbol"}

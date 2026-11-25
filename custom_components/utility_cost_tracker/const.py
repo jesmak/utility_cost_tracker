@@ -10,7 +10,8 @@ CONF_CONSUMPTION_ENTITY = "consumption_entity"
 CONF_UNIT = "unit"
 CONF_FACTOR = "factor"
 CONF_PERIODS = "periods"
-CONF_CENTS = "cents"
+CONF_PRICE_UNIT = "price_unit"
+CONF_HUNDREDTH_SYMBOL = "hundredth_symbol"
 CONF_TAX = "tax"
 CONF_ELEMENT = "element"
 CONF_KIND = "kind"
@@ -29,6 +30,10 @@ CONF_WEEKDAYS = "weekdays"
 CONF_MONTHS = "months"
 
 DEFAULT_PERIODS = ["day", "month", "year"]
+
+PRICE_UNITS = ("currency", "hundredths")
+# Home Assistant knows a currency's code but has no name or symbol for its hundredths, so the user gives one.
+DEFAULT_HUNDREDTH_SYMBOL = "c"
 
 # The elements a new site starts with, by its utility. Their names come from the translations.
 UTILITIES = {

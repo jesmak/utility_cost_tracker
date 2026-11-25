@@ -16,7 +16,6 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_ADDEND,
-    CONF_CENTS,
     CONF_CONSUMPTION_ENTITY,
     CONF_ELEMENT,
     CONF_END,
@@ -29,6 +28,7 @@ from .const import (
     CONF_PERIODS,
     CONF_PRICE,
     CONF_PRICE_ENTITY,
+    CONF_PRICE_UNIT,
     CONF_START,
     CONF_TAX,
     CONF_TAXED,
@@ -102,7 +102,7 @@ def site_of(entry: ConfigEntry) -> Site:
         consumption_entity=entry.data[CONF_CONSUMPTION_ENTITY],
         periods=periods,
         factor=float(entry.data.get(CONF_FACTOR, 1)),
-        scale=0.01 if entry.data.get(CONF_CENTS) else 1.0,
+        scale=0.01 if entry.data.get(CONF_PRICE_UNIT) == "hundredths" else 1.0,
         elements=elements,
         items=items,
     )

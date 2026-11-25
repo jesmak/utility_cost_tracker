@@ -10,7 +10,8 @@
           "consumption_entity": "Mittari",
           "factor": "Muuntokerroin",
           "periods": "Jaksot",
-          "cents": "Hinnat sentteinä"
+          "price_unit": "Hintayksikkö",
+          "hundredth_symbol": "Sadasosan tunnus"
         },
         "data_description": {
           "name": "Esimerkiksi Kodin sähkö.",
@@ -18,7 +19,8 @@
           "consumption_entity": "Anturi, jossa on mittarin kokonaislukema, esimerkiksi ostettu sähkö kilowattitunteina tai kulutettu vesi kuutioina.",
           "factor": "Mittarin lukema kerrotaan tällä ennen hinnoittelua. Jätä arvoksi 1, ellei lukemaa tarvitse muuntaa, kuten kaasua kuutioista kilowattitunneiksi.",
           "periods": "Jokaisesta kulusta luodaan anturi jokaiselle valitulle jaksolle.",
-          "cents": "Hinnat kirjoitetaan sentteinä yksikköä kohden, esimerkiksi 2,267 c/kWh eikä 0,02267 €/kWh. Kustannukset ja hinnat näytetään silti euroina."
+          "price_unit": "Kirjoitatko hinnat valuuttana vai sen sadasosina, esimerkiksi sentteinä kilowattitunnilta. Hinta-anturit näyttävät hinnat samassa yksikössä. Kustannukset ovat aina Home Assistantiin asetetussa valuutassa.",
+          "hundredth_symbol": "Esimerkiksi c, snt tai öre. Käytetään vain, kun hinnat ovat sadasosina."
         }
       },
       "reconfigure": {
@@ -29,20 +31,23 @@
           "consumption_entity": "Mittari",
           "factor": "Muuntokerroin",
           "periods": "Jaksot",
-          "cents": "Hinnat sentteinä"
+          "price_unit": "Hintayksikkö",
+          "hundredth_symbol": "Sadasosan tunnus"
         },
         "data_description": {
           "utility": "Määrää antureiden kuvakkeen.",
           "consumption_entity": "Anturi, jossa on mittarin kokonaislukema, esimerkiksi ostettu sähkö kilowattitunteina tai kulutettu vesi kuutioina.",
           "factor": "Mittarin lukema kerrotaan tällä ennen hinnoittelua. Jätä arvoksi 1, ellei lukemaa tarvitse muuntaa, kuten kaasua kuutioista kilowattitunneiksi.",
           "periods": "Jokaisesta kulusta luodaan anturi jokaiselle valitulle jaksolle.",
-          "cents": "Hinnat kirjoitetaan sentteinä yksikköä kohden, esimerkiksi 2,267 c/kWh eikä 0,02267 €/kWh. Kustannukset ja hinnat näytetään silti euroina."
+          "price_unit": "Kirjoitatko hinnat valuuttana vai sen sadasosina, esimerkiksi sentteinä kilowattitunnilta. Hinta-anturit näyttävät hinnat samassa yksikössä. Kustannukset ovat aina Home Assistantiin asetetussa valuutassa.",
+          "hundredth_symbol": "Esimerkiksi c, snt tai öre. Käytetään vain, kun hinnat ovat sadasosina."
         }
       }
     },
     "error": {
       "no_periods": "Valitse ainakin yksi jakso.",
-      "not_positive": "Kertoimen täytyy olla suurempi kuin nolla."
+      "not_positive": "Kertoimen täytyy olla suurempi kuin nolla.",
+      "no_symbol": "Anna sadasosalle tunnus, kun hinnat ovat sadasosina."
     },
     "abort": {
       "reconfigure_successful": "Tallennettu."
@@ -122,7 +127,7 @@
         },
         "sensor": {
           "title": "Yksikköhinta anturista",
-          "description": "Esimerkiksi pörssisähkön hinta. Hinnaksi tulee anturin arvo kerrottuna kertoimella, ja siihen lisätään lisäys.",
+          "description": "Esimerkiksi pörssisähkön hinta. Kertoimella anturin arvo muunnetaan samaan yksikköön kuin muut hinnat, ja lisäyksellä hintaan voi lisätä kiinteän osan, kuten marginaalin.",
           "data": {
             "name": "Nimi",
             "element": "Kululaji",
@@ -136,7 +141,7 @@
             "factor": "Muuntokerroin"
           },
           "data_description": {
-            "multiplier": "Muuntaa anturin arvon samaan yksikköön kuin muut hinnat, esimerkiksi 100, kun euroista kilowattitunnilta tehdään senttejä. Muuten jätä arvoksi 1.",
+            "multiplier": "Muuntaa anturin arvon samaan yksikköön kuin muut hinnat, esimerkiksi 100, kun anturin hinta on valuuttana ja muut hinnat sadasosina. Muuten jätä arvoksi 1.",
             "addend": "Lisätään kertoimen jälkeen. Muuten jätä arvoksi 0.",
             "taxed": "Kululajin vero lisätään tähän kuluun.",
             "includes_tax": "Valitse tämä, jos anturin hinta ja lisäys sisältävät jo veron.",
@@ -157,7 +162,7 @@
             "includes_tax": "Summa sisältää veron"
           },
           "data_description": {
-            "price": "Hyvitys merkitään negatiivisena.",
+            "price": "Valuuttana, vaikka hinnat kirjoitettaisiin sadasosina. Hyvitys merkitään negatiivisena.",
             "taxed": "Kululajin vero lisätään tähän kuluun.",
             "includes_tax": "Valitse tämä, jos kirjoitat summan verollisena, niin kuin se lukee sopimuksessa tai laskussa."
           }
@@ -227,6 +232,12 @@
         "wastewater": "Jätevesi",
         "gas": "Kaasu",
         "costs": "Kulut"
+      }
+    },
+    "price_unit": {
+      "options": {
+        "currency": "Valuutta",
+        "hundredths": "Valuutan sadasosa"
       }
     },
     "timing": {

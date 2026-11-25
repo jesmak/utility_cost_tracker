@@ -121,7 +121,7 @@ def test_a_sensor_price_with_multiplier_and_addend() -> None:
     assert ledger.totals("day").items["s"] == pytest.approx(0.201877)
 
 
-def test_prices_that_include_the_tax_are_kept_before_it() -> None:
+def test_prices_that_include_the_tax_are_kept_before_it_and_a_fee_is_in_the_currency() -> None:
     margin = Item("margin", "energy", KIND_CONSTANT, price=0.236, includes_tax=True)
     fee = Item("fee", "energy", KIND_FIXED_FEE, price=3.04, includes_tax=True)
     ledger = Ledger(site(margin, fee, scale=0.01))
@@ -129,8 +129,8 @@ def test_prices_that_include_the_tax_are_kept_before_it() -> None:
     readings(ledger, (at(2026, 11, 25, 9), 0.0), (at(2026, 11, 25, 9, 15), 100.0))
     totals = ledger.totals("month")
     assert totals.items["margin"] == pytest.approx(0.236 / 1.255)
-    assert totals.items["fee"] == pytest.approx(0.0304 / 1.255)
-    assert totals.elements["energy"]["total"] == pytest.approx(0.236 + 0.0304)
+    assert totals.items["fee"] == pytest.approx(3.04 / 1.255)
+    assert totals.elements["energy"]["total"] == pytest.approx(0.236 + 3.04)
 
 
 def test_an_untaxed_item_gets_no_tax() -> None:
@@ -186,6 +186,8 @@ def test_periods_start_over() -> None:
     assert ledger.totals("month").items["m"] == 2.0
     assert ledger.totals("year").items["m"] == 3.0
     assert ledger.starts["month"] == at(2026, 12, 1)
+    assert ledger.totals("day").tax == pytest.approx(2.0 * 0.255)
+    assert ledger.totals("month").tax == pytest.approx(2.0 * 0.255)
 
 
 def test_fixed_fees_go_in_whole_at_the_start_of_their_period_and_only_into_periods_as_long() -> None:
@@ -240,6 +242,7 @@ def test_dump_and_load_continue_where_they_left_and_drop_removed_items() -> None
     readings(ledger, (at(2026, 11, 25, 9), 0.0), (at(2026, 11, 25, 9, 15), 2.0))
     data = ledger.dump()
     data["amounts"]["day"]["gone"] = 7.0
+    data["taxes"]["day"]["gone"] = 1.0
 
     restored = Ledger(ledger.site)
     restored.load(data, ("m", "basic"))
@@ -247,6 +250,7 @@ def test_dump_and_load_continue_where_they_left_and_drop_removed_items() -> None
     restored.read(METER, 3.0, at(2026, 11, 25, 9, 45), no_sensor)
     assert restored.totals("month").items == {"m": 3.0, "basic": 4.0}
     assert "gone" not in restored.amounts["day"]
+    assert "gone" not in restored.taxes["day"]
 
 
 def test_a_changed_tax_rate_applies_only_from_then_on() -> None:

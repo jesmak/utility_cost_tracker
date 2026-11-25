@@ -22,7 +22,7 @@ of **cost elements**, the parts of the bill that share a tax rate, such as Energ
 
 - **A constant price per unit:** a margin, an electricity tax, a transfer price, a fixed-price contract, water per m³.
 - **A price per unit from a sensor:** a spot price, with a multiplier and an addition.
-- **A fixed fee** per day, month or year: a basic fee or a standing charge. A negative fee is a credit.
+- **A fixed fee** per day, month or year, such as a basic fee or a standing charge. A negative fee is a credit.
 
 Prices are entered as the bill or the contract states them, with or without tax. A price per unit can apply always,
 in a time window (hours, weekdays and months), or at other times, whenever none of the element's windowed items
@@ -57,14 +57,15 @@ Every setting can be changed later. A change applies from then on, and the total
 
 Added as an integration entry. Its settings are changed with Reconfigure.
 
-| Name                  | Type                                    | Description                                                                                                                                             | Default          |
-| --------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| Name                  | text                                    | The name of the site and its device, such as Home electricity.                                                                                          | required         |
-| Utility               | electricity, water, gas, something else | The cost elements a new site starts with (below), and the icon of its sensors.                                                                          | electricity      |
-| Meter                 | sensor                                  | A sensor with the meter's cumulative reading, such as the total energy imported in kWh or the water used in m³.                                         | required         |
-| Conversion factor     | number                                  | The reading is multiplied by this before any price, such as from gas m³ to kWh.                                                                         | 1                |
-| Periods               | hour, day, week, month, year            | Each item and total gets a sensor for each period chosen. A week starts on Monday.                                                                      | day, month, year |
-| Enter prices in cents | boolean                                 | Prices are typed in cents per unit (2.267 c/kWh) instead of the whole currency (0.02267 €/kWh). Costs and prices are still shown in the whole currency. | off              |
+| Name                  | Type                                    | Description                                                                                                                                  | Default          |
+| --------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Name                  | text                                    | The name of the site and its device, such as Home electricity.                                                                               | required         |
+| Utility               | electricity, water, gas, something else | The cost elements a new site starts with (below), and the icon of its sensors.                                                               | electricity      |
+| Meter                 | sensor                                  | A sensor with the meter's cumulative reading, such as the total energy imported in kWh or the water used in m³.                              | required         |
+| Conversion factor     | number                                  | The reading is multiplied by this before any price, such as from gas m³ to kWh.                                                              | 1                |
+| Periods               | hour, day, week, month, year            | Each item and total gets a sensor for each period chosen. A week starts on Monday.                                                           | day, month, year |
+| Price unit            | currency, hundredths of the currency    | Whether prices are typed in the currency or in its hundredths, such as cents or öre per kWh. The price sensors show prices in the same unit. | currency         |
+| Symbol for hundredths | text                                    | The symbol the price sensors use for a hundredth, such as c, öre or p. Only used when prices are in hundredths.                              | c                |
 
 A new site starts with the cost elements of its utility, named in Home Assistant's language and with no tax. They are Energy
 and Transfer for electricity, Water and Wastewater for water, Gas and Transfer for gas, and Costs for something else. They can
@@ -81,7 +82,8 @@ Added to a site with Add cost element.
 
 ### Item
 
-Added to a site with Add item, which first asks for its kind. Prices are in the site's price unit.
+Added to a site with Add item, which first asks for its kind. Prices per unit are in the site's price unit, and fixed
+fees always in the currency.
 
 | Name               | Kinds            | Description                                                                                                                 | Default  |
 | ------------------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -89,9 +91,9 @@ Added to a site with Add item, which first asks for its kind. Prices are in the 
 | Cost element       | all              | The element the item belongs to.                                                                                            | required |
 | Price per unit     | constant         | The price per unit of consumption.                                                                                          | 0        |
 | Price sensor       | sensor           | The sensor with the price.                                                                                                  | required |
-| Multiplier         | sensor           | Turns the sensor's value into the site's price unit, such as 100 from €/kWh to c/kWh.                                       | 1        |
+| Multiplier         | sensor           | Turns the sensor's value into the site's price unit, such as 100 from the currency to its hundredths.                       | 1        |
 | Addition           | sensor           | Added to the price after the multiplier.                                                                                    | 0        |
-| Amount             | fixed fee        | The fee per period. A negative amount is a credit.                                                                          | 0        |
+| Amount             | fixed fee        | The fee per period, in the currency. A negative amount is a credit.                                                         | 0        |
 | Charged every      | fixed fee        | Day, month or year.                                                                                                         | month    |
 | Taxed              | all              | The element's tax rate is added to the item.                                                                                | on       |
 | Price includes tax | all              | The price is typed with tax, the way a contract or bill shows it. Only for a taxed item.                                    | off      |
@@ -115,9 +117,11 @@ item counts nothing.
 
 ## Sensors
 
-All sensors of a site are on its device. The cost sensors are in the currency set in Home Assistant, with the state
-class `total` and a `last_reset` at the start of their period, so the long-term statistics keep every period's cost.
-Each exists once for each period the site follows, named by it (Total today, Total this month).
+All sensors of a site are on its device. The cost sensors are in the currency set in Home Assistant (Settings ›
+System › General), whatever it is, with the state class `total` and a `last_reset` at the start of their period, so
+the long-term statistics keep every period's cost. Each exists once for each period the site follows, named by it
+(Total today, Total this month). The price sensors are in the site's price unit per the meter's unit, such as EUR/kWh,
+or c/kWh when prices are typed in hundredths.
 
 | Sensor                           | What it shows                                                          |
 | -------------------------------- | ---------------------------------------------------------------------- |
@@ -139,8 +143,9 @@ The price sensors leave out items with a separate meter, as those aren't priced 
 
 ## Examples
 
-An electricity contract on the spot price in Finland, with day and night transfer, in cents. The site follows
-`sensor.example_meter_energy_import`, with prices entered in cents. Both elements have a tax of 25.5.
+An electricity contract on the spot price in Finland, with day and night transfer. The site follows
+`sensor.example_meter_energy_import`, with prices typed in hundredths of the currency, here cents. Both elements have a
+tax rate of 25.5.
 
 | Element  | Item            | Kind      | Price                                              | Includes tax | When           |
 | -------- | --------------- | --------- | -------------------------------------------------- | ------------ | -------------- |
@@ -162,7 +167,7 @@ A seasonal transfer tariff has a winter weekday price and another at other times
 | Transfer | Winter weekday | constant | 4.2   | 07:00–22:00, Monday to Saturday, November to March |
 | Transfer | Other times    | constant | 1.9   | at other times                                     |
 
-A water bill has wastewater billed on the whole volume and a yearly basic fee. It's entered in the whole currency, and
+A water bill has wastewater billed on the whole volume and a yearly basic fee. Its prices are typed in the currency, and
 the element's tax rate is 24.
 
 | Element | Item       | Kind      | Price       | Includes tax |
