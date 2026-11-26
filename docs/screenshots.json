@@ -1,0 +1,567 @@
+{
+    "clock": "2027-01-21T18:40:00+02:00",
+    "resources": [],
+    "devices": {
+        "home_electricity": {
+            "name": "Home electricity"
+        }
+    },
+    "entities": {
+        "sensor.home_electricity_energy_total_today": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Energy total today",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_transfer_total_today": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Transfer total today",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_total_today": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Total today",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_energy_total_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Energy total this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_transfer_total_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Transfer total this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_tax_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Tax this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_total_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Total this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_spot_price_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Spot price this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_margin_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Margin this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_monthly_fee_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Monthly fee this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_day_transfer_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Day transfer this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_night_transfer_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Night transfer this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_electricity_tax_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Electricity tax this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_basic_fee_this_month": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Basic fee this month",
+            "display_precision": 2
+        },
+        "sensor.home_electricity_price_now": {
+            "platform": "utility_cost_tracker",
+            "device_id": "home_electricity",
+            "name": "Price now",
+            "display_precision": 2
+        }
+    },
+    "states": {
+        "sensor.home_electricity_energy_total_today": {
+            "state": "2.7756",
+            "attributes": {
+                "friendly_name": "Home electricity Energy total today",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-21T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_transfer_total_today": {
+            "state": "1.4633",
+            "attributes": {
+                "friendly_name": "Home electricity Transfer total today",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-21T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_total_today": {
+            "state": "4.2389",
+            "attributes": {
+                "friendly_name": "Home electricity Total today",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-21T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_energy_total_this_month": {
+            "state": "85.9833",
+            "attributes": {
+                "friendly_name": "Home electricity Energy total this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_transfer_total_this_month": {
+            "state": "53.2255",
+            "attributes": {
+                "friendly_name": "Home electricity Transfer total this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_tax_this_month": {
+            "state": "28.2854",
+            "attributes": {
+                "friendly_name": "Home electricity Tax this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_total_this_month": {
+            "state": "139.2088",
+            "attributes": {
+                "friendly_name": "Home electricity Total this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_spot_price_this_month": {
+            "state": "62.6697",
+            "attributes": {
+                "friendly_name": "Home electricity Spot price this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_margin_this_month": {
+            "state": "2.6636",
+            "attributes": {
+                "friendly_name": "Home electricity Margin this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_monthly_fee_this_month": {
+            "state": "3.1793",
+            "attributes": {
+                "friendly_name": "Home electricity Monthly fee this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_day_transfer_this_month": {
+            "state": "13.0510",
+            "attributes": {
+                "friendly_name": "Home electricity Day transfer this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_night_transfer_this_month": {
+            "state": "4.1792",
+            "attributes": {
+                "friendly_name": "Home electricity Night transfer this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_electricity_tax_this_month": {
+            "state": "15.2204",
+            "attributes": {
+                "friendly_name": "Home electricity Electricity tax this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_basic_fee_this_month": {
+            "state": "9.9602",
+            "attributes": {
+                "friendly_name": "Home electricity Basic fee this month",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "EUR",
+                "device_class": "monetary",
+                "state_class": "total",
+                "last_reset": "2027-01-01T00:00:00+02:00"
+            }
+        },
+        "sensor.home_electricity_price_now": {
+            "state": "21.5126",
+            "attributes": {
+                "friendly_name": "Home electricity Price now",
+                "icon": "mdi:lightning-bolt",
+                "unit_of_measurement": "c/kWh",
+                "state_class": "measurement"
+            }
+        }
+    },
+    "statistics": {
+        "sensor.home_electricity_energy_total_today": {
+            "unit": "EUR",
+            "sum": [
+                [
+                    "2027-01-01T12:00:00+02:00",
+                    1.7076
+                ],
+                [
+                    "2027-01-02T12:00:00+02:00",
+                    4.4112
+                ],
+                [
+                    "2027-01-03T12:00:00+02:00",
+                    6.5862
+                ],
+                [
+                    "2027-01-04T12:00:00+02:00",
+                    10.7298
+                ],
+                [
+                    "2027-01-05T12:00:00+02:00",
+                    16.3707
+                ],
+                [
+                    "2027-01-06T12:00:00+02:00",
+                    19.7535
+                ],
+                [
+                    "2027-01-07T12:00:00+02:00",
+                    23.3446
+                ],
+                [
+                    "2027-01-08T12:00:00+02:00",
+                    28.0139
+                ],
+                [
+                    "2027-01-09T12:00:00+02:00",
+                    35.0294
+                ],
+                [
+                    "2027-01-10T12:00:00+02:00",
+                    37.5627
+                ],
+                [
+                    "2027-01-11T12:00:00+02:00",
+                    39.1511
+                ],
+                [
+                    "2027-01-12T12:00:00+02:00",
+                    43.3901
+                ],
+                [
+                    "2027-01-13T12:00:00+02:00",
+                    49.6036
+                ],
+                [
+                    "2027-01-14T12:00:00+02:00",
+                    53.964
+                ],
+                [
+                    "2027-01-15T12:00:00+02:00",
+                    57.0507
+                ],
+                [
+                    "2027-01-16T12:00:00+02:00",
+                    59.4339
+                ],
+                [
+                    "2027-01-17T12:00:00+02:00",
+                    61.2796
+                ],
+                [
+                    "2027-01-18T12:00:00+02:00",
+                    66.1539
+                ],
+                [
+                    "2027-01-19T12:00:00+02:00",
+                    73.9617
+                ],
+                [
+                    "2027-01-20T12:00:00+02:00",
+                    79.2176
+                ],
+                [
+                    "2027-01-21T12:00:00+02:00",
+                    81.9933
+                ]
+            ]
+        },
+        "sensor.home_electricity_transfer_total_today": {
+            "unit": "EUR",
+            "sum": [
+                [
+                    "2027-01-01T12:00:00+02:00",
+                    1.7806
+                ],
+                [
+                    "2027-01-02T12:00:00+02:00",
+                    3.7015
+                ],
+                [
+                    "2027-01-03T12:00:00+02:00",
+                    5.5327
+                ],
+                [
+                    "2027-01-04T12:00:00+02:00",
+                    7.4783
+                ],
+                [
+                    "2027-01-05T12:00:00+02:00",
+                    9.5636
+                ],
+                [
+                    "2027-01-06T12:00:00+02:00",
+                    11.6225
+                ],
+                [
+                    "2027-01-07T12:00:00+02:00",
+                    13.4667
+                ],
+                [
+                    "2027-01-08T12:00:00+02:00",
+                    15.3884
+                ],
+                [
+                    "2027-01-09T12:00:00+02:00",
+                    17.6001
+                ],
+                [
+                    "2027-01-10T12:00:00+02:00",
+                    19.4418
+                ],
+                [
+                    "2027-01-11T12:00:00+02:00",
+                    21.1915
+                ],
+                [
+                    "2027-01-12T12:00:00+02:00",
+                    23.2625
+                ],
+                [
+                    "2027-01-13T12:00:00+02:00",
+                    25.4563
+                ],
+                [
+                    "2027-01-14T12:00:00+02:00",
+                    27.4029
+                ],
+                [
+                    "2027-01-15T12:00:00+02:00",
+                    29.2222
+                ],
+                [
+                    "2027-01-16T12:00:00+02:00",
+                    31.0984
+                ],
+                [
+                    "2027-01-17T12:00:00+02:00",
+                    32.9114
+                ],
+                [
+                    "2027-01-18T12:00:00+02:00",
+                    34.9814
+                ],
+                [
+                    "2027-01-19T12:00:00+02:00",
+                    37.2362
+                ],
+                [
+                    "2027-01-20T12:00:00+02:00",
+                    39.2622
+                ],
+                [
+                    "2027-01-21T12:00:00+02:00",
+                    40.7255
+                ]
+            ]
+        }
+    },
+    "shots": [
+        {
+            "name": "dashboard",
+            "width": 1000,
+            "view": {
+                "type": "sections",
+                "max_columns": 2,
+                "sections": [
+                    {
+                        "type": "grid",
+                        "cards": [
+                            {
+                                "type": "heading",
+                                "heading": "Home electricity",
+                                "icon": "mdi:lightning-bolt"
+                            },
+                            {
+                                "type": "tile",
+                                "entity": "sensor.home_electricity_total_today",
+                                "name": "Today",
+                                "icon": "mdi:calendar-today"
+                            },
+                            {
+                                "type": "tile",
+                                "entity": "sensor.home_electricity_price_now",
+                                "name": "Price now",
+                                "icon": "mdi:cash-clock"
+                            },
+                            {
+                                "type": "statistics-graph",
+                                "title": "Cost per day",
+                                "chart_type": "bar",
+                                "period": "day",
+                                "days_to_show": 14,
+                                "stat_types": [
+                                    "change"
+                                ],
+                                "entities": [
+                                    {
+                                        "entity": "sensor.home_electricity_energy_total_today",
+                                        "name": "Energy"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_transfer_total_today",
+                                        "name": "Transfer"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "tile",
+                                "entity": "sensor.home_electricity_energy_total_this_month",
+                                "name": "Energy this month"
+                            },
+                            {
+                                "type": "tile",
+                                "entity": "sensor.home_electricity_transfer_total_this_month",
+                                "name": "Transfer this month",
+                                "icon": "mdi:transmission-tower"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "grid",
+                        "cards": [
+                            {
+                                "type": "heading",
+                                "heading": "The bill so far this month",
+                                "icon": "mdi:receipt-text-outline"
+                            },
+                            {
+                                "type": "entities",
+                                "entities": [
+                                    {
+                                        "entity": "sensor.home_electricity_spot_price_this_month",
+                                        "name": "Spot price"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_margin_this_month",
+                                        "name": "Margin"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_monthly_fee_this_month",
+                                        "name": "Monthly fee"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_day_transfer_this_month",
+                                        "name": "Day transfer"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_night_transfer_this_month",
+                                        "name": "Night transfer"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_electricity_tax_this_month",
+                                        "name": "Electricity tax"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_basic_fee_this_month",
+                                        "name": "Basic fee"
+                                    },
+                                    {
+                                        "type": "divider"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_tax_this_month",
+                                        "name": "Tax",
+                                        "icon": "mdi:percent"
+                                    },
+                                    {
+                                        "entity": "sensor.home_electricity_total_this_month",
+                                        "name": "Total",
+                                        "icon": "mdi:sigma"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
