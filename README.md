@@ -278,7 +278,9 @@ used in turn and can be set in a theme.
 
 ### Sizes
 
-The card takes a whole section. On automatic rows in a sections view, it ends on whole rows, or on half rows with
+The card takes a whole section. With neither the period switch nor the earlier periods, and neither a chart nor a
+bill, it fits in half of one, and a card narrower than 300 px has the name and the period on a line above the total.
+On automatic rows in a sections view, it ends on whole rows, or on half rows with
 `row_step: half`, and any room left over goes to the chart, or is spread between the parts when there is no chart.
 Held to a height lower than its content, it scrolls the bill, and then draws the chart lower. A card held taller
 has a taller chart. A card held too low for the estimate's box has the estimate as a line under the total.

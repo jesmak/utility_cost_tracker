@@ -1619,6 +1619,7 @@ var PADDING = 16;
 var GAP = 12;
 var HEADER_HEIGHT = 24;
 var COMPACT_HEIGHT = 40;
+var COMPACT_NARROW_HEIGHT = 60;
 var PERIODS_HEIGHT = 28;
 var EARLIER_HEIGHT = 36;
 var LABEL_HEIGHT = 18;
@@ -1699,7 +1700,20 @@ var UtilityCostCard = class extends i4 {
   }
   /** The chart's bars and the bill's amounts need about a phone's section, so the card takes a whole section. */
   getGridOptions() {
-    return { columns: 12, min_columns: 12, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
+    return { columns: 12, min_columns: this.narrowable() ? 6 : 12, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
+  }
+  /** Whether the card fits in half a section: with the one-row head and neither a chart nor a bill, which need the width. */
+  narrowable() {
+    const config = this.config;
+    const full = shows(config, "show_periods") || shows(config, "show_earlier");
+    return !full && !shows(config, "show_chart") && !shows(config, "show_bill");
+  }
+  /** The columns the card has in a sections view: 12, a whole section, unless the layout tab gave it fewer. */
+  columns() {
+    const config = this.config;
+    const columns = config?.grid_options ? config.grid_options.columns : config?.layout_options?.grid_columns;
+    const older = !config?.grid_options;
+    return typeof columns === "number" ? columns * (older ? 3 : 1) : 12;
   }
   connectedCallback() {
     super.connectedCallback();
@@ -2292,7 +2306,7 @@ var UtilityCostCard = class extends i4 {
       );
       if (estimate2 && boxed) parts.push(ESTIMATE_HEIGHT);
     } else {
-      parts.push(COMPACT_HEIGHT);
+      parts.push(this.narrowable() && this.columns() < 12 ? COMPACT_NARROW_HEIGHT : COMPACT_HEIGHT);
     }
     if (shows(config, "show_share")) parts.push(SHARE_HEIGHT);
     if (shows(config, "show_chart")) parts.push(CHART_PART_HEIGHT - CHART_HEIGHT + CHART_LEAST_HEIGHT);
@@ -2582,7 +2596,8 @@ var UtilityCostCard = class extends i4 {
                 }
                 .names {
                     flex: 1;
-                    min-width: 0;
+                    /* The detail under the total is cut short before the name and the period's button are. */
+                    min-width: min(45%, 80px);
                     display: flex;
                     flex-direction: column;
                     align-items: flex-start;
@@ -2928,6 +2943,34 @@ var UtilityCostCard = class extends i4 {
                     }
                     .price-label {
                         display: none;
+                    }
+                }
+                /* At a card narrower than 300 px, the one-row head is on two lines: the name and the period, then the total. */
+                @container (max-width: 266px) {
+                    .compact {
+                        flex-wrap: wrap;
+                        gap: 0 8px;
+                        height: ${COMPACT_NARROW_HEIGHT}px;
+                    }
+                    .badge {
+                        display: none;
+                    }
+                    .names {
+                        flex: 1 0 100%;
+                        flex-direction: row;
+                        align-items: baseline;
+                        justify-content: space-between;
+                        gap: 8px;
+                    }
+                    /* A long name and a long period share the line, each cut short by its share. */
+                    .names b,
+                    .names span,
+                    .names button {
+                        min-width: 0;
+                    }
+                    .value {
+                        flex: 1 0 100%;
+                        text-align: left;
                     }
                 }
             `

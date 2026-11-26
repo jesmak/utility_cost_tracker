@@ -65,6 +65,8 @@ const GAP = 12;
 // worked out from them, so from its settings alone.
 const HEADER_HEIGHT = 24;
 const COMPACT_HEIGHT = 40;
+/** The one-row head on two lines, the name and the period over the total, in a card narrower than 300 px. */
+const COMPACT_NARROW_HEIGHT = 60;
 const PERIODS_HEIGHT = 28;
 const EARLIER_HEIGHT = 36;
 const LABEL_HEIGHT = 18;
@@ -173,7 +175,22 @@ export class UtilityCostCard extends LitElement {
 
     /** The chart's bars and the bill's amounts need about a phone's section, so the card takes a whole section. */
     public getGridOptions(): Record<string, unknown> {
-        return { columns: 12, min_columns: 12, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
+        return { columns: 12, min_columns: this.narrowable() ? 6 : 12, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
+    }
+
+    /** Whether the card fits in half a section: with the one-row head and neither a chart nor a bill, which need the width. */
+    private narrowable(): boolean {
+        const config = this.config;
+        const full = shows(config, "show_periods") || shows(config, "show_earlier");
+        return !full && !shows(config, "show_chart") && !shows(config, "show_bill");
+    }
+
+    /** The columns the card has in a sections view: 12, a whole section, unless the layout tab gave it fewer. */
+    private columns(): number {
+        const config = this.config as { grid_options?: { columns?: unknown }; layout_options?: { grid_columns?: unknown } } | undefined;
+        const columns = config?.grid_options ? config.grid_options.columns : config?.layout_options?.grid_columns;
+        const older = !config?.grid_options;
+        return typeof columns === "number" ? columns * (older ? 3 : 1) : 12;
     }
 
     public connectedCallback(): void {
@@ -904,7 +921,8 @@ export class UtilityCostCard extends LitElement {
             // The estimate's box, which is lower as a comparison alone and missing without a previous period.
             if (estimate && boxed) parts.push(ESTIMATE_HEIGHT);
         } else {
-            parts.push(COMPACT_HEIGHT);
+            // On fewer columns than a section's twelve the card can be narrow enough for the head's two lines.
+            parts.push(this.narrowable() && this.columns() < 12 ? COMPACT_NARROW_HEIGHT : COMPACT_HEIGHT);
         }
         if (shows(config, "show_share")) parts.push(SHARE_HEIGHT);
         if (shows(config, "show_chart")) parts.push(CHART_PART_HEIGHT - CHART_HEIGHT + CHART_LEAST_HEIGHT);
@@ -1216,7 +1234,8 @@ export class UtilityCostCard extends LitElement {
                 }
                 .names {
                     flex: 1;
-                    min-width: 0;
+                    /* The detail under the total is cut short before the name and the period's button are. */
+                    min-width: min(45%, 80px);
                     display: flex;
                     flex-direction: column;
                     align-items: flex-start;
@@ -1562,6 +1581,34 @@ export class UtilityCostCard extends LitElement {
                     }
                     .price-label {
                         display: none;
+                    }
+                }
+                /* At a card narrower than 300 px, the one-row head is on two lines: the name and the period, then the total. */
+                @container (max-width: 266px) {
+                    .compact {
+                        flex-wrap: wrap;
+                        gap: 0 8px;
+                        height: ${COMPACT_NARROW_HEIGHT}px;
+                    }
+                    .badge {
+                        display: none;
+                    }
+                    .names {
+                        flex: 1 0 100%;
+                        flex-direction: row;
+                        align-items: baseline;
+                        justify-content: space-between;
+                        gap: 8px;
+                    }
+                    /* A long name and a long period share the line, each cut short by its share. */
+                    .names b,
+                    .names span,
+                    .names button {
+                        min-width: 0;
+                    }
+                    .value {
+                        flex: 1 0 100%;
+                        text-align: left;
                     }
                 }
             `,

@@ -369,4 +369,24 @@ describe("the card", () => {
         expect(whole).toMatchObject({ columns: 12, min_columns: 12, rows: "auto" });
         expect(whole.min_rows as number).toBeGreaterThan(small.min_rows as number);
     });
+
+    it("fits in half a section only with the one-row head and neither a chart nor a bill", async () => {
+        const head = { show_periods: false, show_earlier: false };
+        const narrow = { ...head, show_chart: false, show_bill: false };
+        expect((await card(narrow)).getGridOptions().min_columns).toBe(6);
+        expect((await card({ ...narrow, show_chart: true })).getGridOptions().min_columns).toBe(12);
+        expect((await card({ ...narrow, show_bill: true })).getGridOptions().min_columns).toBe(12);
+        expect((await card({ ...narrow, show_earlier: true })).getGridOptions().min_columns).toBe(12);
+    });
+
+    it("counts the head's two lines into its least height on fewer columns than a whole section", async () => {
+        // A fixed height lower than the card needs is raised to its least, which is 20 px more with the head on two lines.
+        const narrow = { show_periods: false, show_earlier: false, show_chart: false, show_bill: false, height_mode: "fixed", height: 1 };
+        const least = (element: UtilityCostCard) =>
+            Number.parseFloat(element.shadowRoot!.querySelector<HTMLElement>("ha-card")!.style.height);
+        const whole = least(await card(narrow));
+        expect(least(await card({ ...narrow, grid_options: { columns: 6 } }))).toBe(whole + 20);
+        expect(least(await card({ ...narrow, layout_options: { grid_columns: 2 } }))).toBe(whole + 20);
+        expect(least(await card({ ...narrow, grid_options: { columns: "full" } }))).toBe(whole);
+    });
 });
