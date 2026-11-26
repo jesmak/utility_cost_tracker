@@ -167,3 +167,38 @@ async def test_the_card_reads_a_site_over_the_websocket(
 
     await client.send_json_auto_id({"type": "utility_cost_tracker/site", "entry_id": "nothing"})
     assert (await client.receive_json())["error"]["code"] == "not_found"
+
+
+async def test_a_zone_half_an_hour_off_utc_has_its_history_by_its_own_hours_and_days(
+    recorder_mock: Recorder, hass: HomeAssistant, entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+) -> None:
+    zone = ZoneInfo("Asia/Kolkata")
+    await hass.config.async_set_time_zone("Asia/Kolkata")
+    hass.config.currency = "EUR"
+    freezer.move_to(datetime(2026, 11, 25, 22, 10, tzinfo=zone))
+    hass.states.async_set(SPOT, "0.10")
+    hass.states.async_set(METER, "100", {"unit_of_measurement": "kWh"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    # 2 kWh before midnight, 1 kWh in the half hour after it, which is still the 25th in UTC, and 2 kWh later that day.
+    await reading(hass, freezer, datetime(2026, 11, 25, 23, 40, tzinfo=zone), 102)
+    await reading(hass, freezer, datetime(2026, 11, 26, 0, 20, tzinfo=zone), 103)
+    await reading(hass, freezer, datetime(2026, 11, 26, 9, 5, tzinfo=zone), 105)
+    await reading(hass, freezer, datetime(2026, 11, 26, 10, 5, tzinfo=zone), 105.5)
+    await async_wait_recording_done(hass)
+
+    spot = statistic_id(entry, "spot", "cost")
+    start = datetime(2026, 11, 1, tzinfo=zone)
+
+    def read(period: str) -> list[tuple[datetime, float]]:
+        rows = statistics_during_period(hass, start, None, {spot}, period, None, {"change"})
+        return [(dt_util.utc_from_timestamp(row["start"]).astimezone(zone), row["change"]) for row in rows.get(spot, [])]
+
+    hours = await get_instance(hass).async_add_executor_job(read, "hour")
+    days = await get_instance(hass).async_add_executor_job(read, "day")
+    # The recorder keeps a row where it was written, on the zone's own hour, and counts a day from the zone's midnight.
+    assert [(moment.day, moment.hour, moment.minute) for moment, _ in hours] == [(25, 23, 0), (26, 0, 0), (26, 9, 0)]
+    assert [change for _, change in hours] == pytest.approx([0.2, 0.1, 0.2])
+    assert [(moment.day, moment.hour, moment.minute) for moment, _ in days] == [(25, 0, 0), (26, 0, 0)]
+    assert [change for _, change in days] == pytest.approx([0.2, 0.3])

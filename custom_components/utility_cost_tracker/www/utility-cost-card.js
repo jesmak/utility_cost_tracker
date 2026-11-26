@@ -819,7 +819,8 @@ var StatisticsCache = class {
     this.asked = /* @__PURE__ */ new Map();
   }
   read(hass, now, ids, from, to, period, types) {
-    const stamp = Math.floor(now / HOUR_MS2) * 2 + (now % HOUR_MS2 >= STATISTICS_DELAY_MS ? 1 : 0);
+    const hour = periodStart("hour", now, hass.config?.time_zone);
+    const stamp = hour / 6e4 * 2 + (now - hour >= STATISTICS_DELAY_MS ? 1 : 0);
     if (stamp !== this.stamp) {
       this.stamp = stamp;
       this.asked.clear();

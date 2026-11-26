@@ -19,25 +19,25 @@ const SINCE = at("2026-09-30T21:00:00Z");
  * not written yet, and the rows are answered by the hour, the day or the month as the recorder does, or by five minutes
  * for a meter's own statistics.
  */
-function recorder(rates: Record<string, number>, since = SINCE) {
+function recorder(rates: Record<string, number>, since = SINCE, zone = ZONE) {
     const asked: Record<string, unknown>[] = [];
     const hass: HomeAssistant = {
-        config: { time_zone: ZONE },
+        config: { time_zone: zone },
         callWS: async <T>(message: Record<string, unknown>) => {
             asked.push(message);
             const from = Date.parse(message.start_time as string);
             const to = Date.parse(message.end_time as string);
             const five = message.period === "5minute";
             const bucket = five ? "hour" : (message.period as "hour" | "day" | "month");
-            const next = (start: number) => (five ? start + HOUR / 12 : shift(bucket, start, 1, ZONE));
-            const written = five ? NOW - (NOW % (HOUR / 12)) : periodStart("hour", NOW, ZONE);
+            const next = (start: number) => (five ? start + HOUR / 12 : shift(bucket, start, 1, zone));
+            const written = five ? NOW - (NOW % (HOUR / 12)) : periodStart("hour", NOW, zone);
             const answer: Record<string, { start: number; end: number; change: number; sum: number }[]> = {};
             for (const id of message.statistic_ids as string[]) {
                 if (!(id in rates)) {
                     continue;
                 }
                 const rows = [];
-                for (let start = periodStart(bucket, from, ZONE); start < to; start = next(start)) {
+                for (let start = periodStart(bucket, from, zone); start < to; start = next(start)) {
                     const end = next(start);
                     const hours = (Math.min(end, written) - Math.max(start, since)) / HOUR;
                     if (hours > 0) {
@@ -284,4 +284,20 @@ it("the statistics are asked when an hour ends and once more soon after, and aga
     await expect(loadView(failing, failed, site(), "day", -1, NOW, { chart: true, previous: false })).rejects.toThrow();
     await loadView(hass, failed, site(), "day", -1, NOW, { chart: true, previous: false });
     expect(asked).toHaveLength(4);
+});
+
+it("where the zone is half an hour off, the statistics are asked when its own hour ends, not UTC's", async () => {
+    // 19:10 in Kolkata, whose hours end at half past UTC's.
+    const { hass, asked } = recorder(RATES, SINCE, "Asia/Kolkata");
+    const cache = new StatisticsCache();
+    const wants = { chart: true, previous: false };
+    await loadView(hass, cache, site(), "day", -1, NOW, wants);
+    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:00:30Z"), wants);
+    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:02:00Z"), wants);
+    expect(asked).toHaveLength(1);
+    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:30:30Z"), wants);
+    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:31:10Z"), wants);
+    expect(asked).toHaveLength(2);
+    await loadView(hass, cache, site(), "day", -1, at("2026-11-25T14:32:00Z"), wants);
+    expect(asked).toHaveLength(3);
 });

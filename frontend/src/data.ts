@@ -80,7 +80,9 @@ export class StatisticsCache {
         period: Bucket,
         types: string[],
     ): Promise<Statistics> {
-        const stamp = Math.floor(now / HOUR_MS) * 2 + (now % HOUR_MS >= STATISTICS_DELAY_MS ? 1 : 0);
+        // By the zone's own hour, which is where the rows are written and half an hour off UTC's in some zones.
+        const hour = periodStart("hour", now, hass.config?.time_zone);
+        const stamp = (hour / 60_000) * 2 + (now - hour >= STATISTICS_DELAY_MS ? 1 : 0);
         if (stamp !== this.stamp) {
             this.stamp = stamp;
             this.asked.clear();
