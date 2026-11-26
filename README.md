@@ -323,6 +323,17 @@ the element's tax rate is 24.
 The integration uses no outside service. It reads the sensors it is given and counts from the moment a site is added,
 so the totals start from zero then and have no history from before it.
 
+## Translating
+
+The integration's texts are in `custom_components/utility_cost_tracker/translations/`, one JSON file per language,
+named by its language code, such as `en.json` and `fi.json`. To add a language, copy `en.json` to the new language's
+code and translate the values.
+
+The utility cost card's texts are in `frontend/src/localize/languages/`, in the same way. The card finds a new file by
+itself and uses it when Home Assistant is set to that language. A text left out falls back to English. A file may
+name a region, such as `pt-br.json`. It is used for `pt-BR`, falling back to a file for the language alone (`pt.json`),
+and then to English.
+
 ## Development
 
 Requires Python 3.14, the version the current Home Assistant needs.
