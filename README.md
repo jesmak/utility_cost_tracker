@@ -237,6 +237,10 @@ the card is inside, even in a sections view.
 Without the period switch and the arrows to earlier periods, the card's head is a single row of the site's name, the
 period and the total. Tapping the period there changes it to the next one the site follows.
 
+A site whose price doesn't vary, such as water at one price per cubic metre, has paid on average what it pays now.
+When the two read the same, the card shows the price once, and an estimate's average only when it differs from the
+average so far.
+
 ### The estimate
 
 For the period under way, the card estimates what the whole period will cost. It is what the period has cost so far

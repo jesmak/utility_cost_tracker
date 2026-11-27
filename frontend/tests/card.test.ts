@@ -295,6 +295,22 @@ describe("the card", () => {
         expect(text(await card({ show_bill: false }, answers), ".estimate")).toContain("The previous whole period");
     });
 
+    it("says a price once when the average paid and the price now read the same, and leaves a lone price now its unit", async () => {
+        // 59 and 20 with tax over 500 kWh is 19.83 c/kWh, which a site with one constant price also pays now.
+        const flat = hass([], () => ({ ...site(), prices: { ...site().prices, total: 19.829 } }));
+        const row = { show_periods: false, show_earlier: false, show_bill: false, show_chart: false, show_estimate: false };
+        const parts = (element: UtilityCostCard) => all(element, ".value small > span").map((part) => part.textContent?.trim());
+        expect(parts(await card(row, flat))).toEqual(["19.83 c/kWh"]);
+        expect(text(await card({ show_estimate: false, show_chart: false }, flat), ".consumption")).toBe("500.0 kWh");
+        expect(text(await card({ show_estimate: false, show_chart: false }, flat), ".price")).toBe("Price now 19.83 c/kWh");
+        // A price that varies keeps both, and the average stays in the full head too.
+        expect(parts(await card(row))).toEqual(["avg. 19.83 c/kWh", "now 17.00 c/kWh"]);
+        expect(text(await card({ show_estimate: false, show_chart: false }), ".consumption")).toContain("average 19.83 c/kWh");
+        const alone = await card({ ...row, show_consumption: false });
+        expect(parts(alone)).toEqual(["now 17.00 c/kWh"]);
+        expect(all(alone, ".now.alone")).toHaveLength(1);
+    });
+
     it("gives a scale's numbers the decimals its step needs, however small the amounts", async () => {
         // Half a thousandth of a kWh in the month's first day, on a site whose bars are all empty.
         const answers = consumed(0.024);

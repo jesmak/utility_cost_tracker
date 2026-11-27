@@ -398,13 +398,24 @@ export class UtilityCostCard extends LitElement {
         const averages = shows(config, "show_consumption");
         const short = (value: number | undefined) =>
             averages && value !== undefined ? this.text("card.average_short").replace("{price}", this.price(site, value)) : undefined;
-        const average = short(averagePrice(site, bill, view.ledger.consumption));
+        const paid = averagePrice(site, bill, view.ledger.consumption);
+        const price = shows(config, "show_price") ? site.prices.total : undefined;
+        // A site whose price doesn't vary has paid on average what it pays now, and is given the price once, as it is.
+        const flat = averages && this.samePrice(paid, price);
+        const average = flat ? undefined : short(paid);
         // The unit is said once on one row, with the average, and on two lines with both, as they are at the line's ends.
         const [nowBefore, nowAfter] = this.text("card.now").split("{price}");
-        const price = shows(config, "show_price") ? site.prices.total : undefined;
         const now =
-            price == null ? undefined : html`${nowBefore}${this.number(price, 2)}<span class="unit"> ${site.price_unit}</span>${nowAfter}`;
-        const said = price == null ? undefined : `${nowBefore}${this.price(site, price)}${nowAfter}`;
+            price == null
+                ? undefined
+                : flat
+                  ? html`<span>${this.price(site, price)}</span>`
+                  : html`<span class="now ${average ? "" : "alone"}"
+                        >${nowBefore}${this.number(price, 2)}<span class="unit"> ${site.price_unit}</span>${nowAfter}</span
+                    >`;
+        const said = price == null ? undefined : flat ? this.price(site, price) : `${nowBefore}${this.price(site, price)}${nowAfter}`;
+        // The estimate's average says something only when the rest of the period would change it.
+        const whole = guess && averages ? this.estimatedAverage(site, view) : undefined;
         const [before, after] = this.text("card.estimate_short").split("{amount}");
         const [label, , brief] = this.label(view);
         const period = brief ? html`<span class="long">${label}</span><span class="brief">${brief}</span>` : label;
@@ -424,17 +435,22 @@ export class UtilityCostCard extends LitElement {
                 guess
                     ? html`<div class="guess">
                           <span>${before}<b>${this.money(site, guess.total, 0)}</b>${after}</span>
-                          <small>${short(this.estimatedAverage(site, view)) ?? nothing}</small>
+                          <small>${this.samePrice(whole, paid) ? nothing : (short(whole) ?? nothing)}</small>
                       </div>`
                     : nothing
             }
             <div class="value">
                 ${this.money(site, bill.total)}
                 <small title=${[average, said].filter(Boolean).join(" · ")}
-                    >${average ? html`<span>${average}</span>` : nothing}${now ? html`<span class="now">${now}</span>` : nothing}</small
+                    >${average ? html`<span>${average}</span>` : nothing}${now ?? nothing}</small
                 >
             </div>
         </div>`;
+    }
+
+    /** Whether two prices per unit read the same as the card shows them. */
+    private samePrice(one: number | null | undefined, other: number | null | undefined): boolean {
+        return one != null && other != null && this.number(one, 2) === this.number(other, 2);
     }
 
     /** The average price of the whole period as estimated: this one so far and the rest as estimated. */
@@ -470,7 +486,9 @@ export class UtilityCostCard extends LitElement {
 
     private consumption(site: Site, view: View, bill: Shown): TemplateResult {
         const used = view.ledger.consumption;
-        const average = averagePrice(site, bill, used);
+        const paid = averagePrice(site, bill, used);
+        // Left out when the head's price now already says the same.
+        const average = shows(this.config, "show_price") && this.samePrice(paid, site.prices.total) ? undefined : paid;
         return html`<b>${this.number(used, used < 10 ? 2 : 1)}${site.unit ? ` ${site.unit}` : ""}</b>${
                 average === undefined
                     ? nothing
@@ -1342,6 +1360,13 @@ export class UtilityCostCard extends LitElement {
                 }
                 .now .unit {
                     display: none;
+                }
+                /* Without an average beside it, the price now stands alone and says its own unit. */
+                .now.alone::before {
+                    content: none;
+                }
+                .now.alone .unit {
+                    display: inline;
                 }
                 .guess {
                     flex: none;
