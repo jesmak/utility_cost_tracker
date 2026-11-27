@@ -5,6 +5,11 @@ each item of the bill on its own and in totals.
 
 [![GitHub Release][releases-shield]][releases] [![GitHub Release Date][release-date-shield]][releases] [![Downloads][downloads-shield]][releases] [![Marketplace][marketplace-shield]][marketplace] [![License][license-shield]](LICENSE)
 
+<img src="https://raw.githubusercontent.com/jesmak/utility_cost_tracker/main/docs/images/dashboard-light.png#gh-light-mode-only" width="1000" alt="A dashboard with a home's electricity bill for January so far, its estimate for the whole month, a chart of the days and the bill's items under Energy and Transfer, beside it today's cost by the hour, the week's total with a bar of each element's share, the price now, and the home's water bill with Water and Wastewater">
+<img src="https://raw.githubusercontent.com/jesmak/utility_cost_tracker/main/docs/images/dashboard-dark.png#gh-dark-mode-only" width="1000" alt="A dashboard with a home's electricity bill for January so far, its estimate for the whole month, a chart of the days and the bill's items under Energy and Transfer, beside it today's cost by the hour, the week's total with a bar of each element's share, the price now, and the home's water bill with Water and Wastewater">
+
+The data in the picture is made up.
+
 ## What is it?
 
 A utility bill is rarely one price times the consumption. An electricity bill can have a spot price, the seller's
