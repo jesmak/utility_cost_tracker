@@ -2,8 +2,8 @@
  * What the card reads from Home Assistant: the site from the integration's command, and its history from the long-term
  * statistics the integration writes, an hourly running sum per item and for the consumption.
  */
-import { STATISTICS_DELAY_MS } from "./const";
-import { add, emptyLedger } from "./cost";
+import { RATE_DAYS, STATISTICS_DELAY_MS } from "./const";
+import { add, atRate, emptyLedger } from "./cost";
 import type { Ledger } from "./cost";
 import type { HomeAssistant } from "./hass";
 import { PARTS, periodStart, shift } from "./periods";
@@ -11,6 +11,7 @@ import type { Period } from "./periods";
 import type { Site } from "./types";
 
 const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
 
 interface Row {
     start: number;
@@ -57,6 +58,11 @@ export interface View {
     previous?: Ledger;
     /** The previous period up to the point this one is at now. */
     previousSame?: Ledger;
+    /**
+     * What the rest of the period under way is estimated to hold. A day and a year have it as the previous one went from
+     * the same point on, a week and a month at the rate of the last days. None for an hour, or without that history.
+     */
+    rest?: Ledger;
     /** How much of the period has passed, 0 to 1. */
     elapsed: number;
     /** Whether the history reaches the period before. */
@@ -263,21 +269,43 @@ export async function loadView(
         }
     }
 
+    if (!wants.previous) {
+        return view;
+    }
     const previousFrom = shift(period, from, -1, zone);
-    if (wants.previous && previousFrom >= since) {
+    // The same date and time a period back. A shorter month has none for a longer one's last days, and is whole by then.
+    const cut = Math.min(shift(period, now, -1, zone), from);
+    const splits = current && period !== "hour";
+    if (previousFrom >= since) {
         const bucket: Bucket = period === "hour" || period === "day" ? "hour" : "day";
         const previous = await read(previousFrom, from, bucket);
         view.previous = ledgerOf(site, previous, previousFrom, from);
-        if (current && period !== "hour") {
-            const cut = Math.min(previousFrom + (now - from), from);
-            if (bucket === "hour") {
-                view.previousSame = ledgerOf(site, previous, previousFrom, from, cut);
-            } else {
-                // Whole days up to the day the point falls in, and that day by its hours.
-                const day = periodStart("day", cut, zone);
-                const hours = await read(day, shift("day", day, 1, zone), "hour");
-                view.previousSame = add(ledgerOf(site, previous, previousFrom, day), ledgerOf(site, hours, day, from, cut));
-            }
+        if (splits && bucket === "hour") {
+            view.previousSame = ledgerOf(site, previous, previousFrom, from, cut);
+        } else if (splits) {
+            // Whole days up to the day the point falls in, and that day by its hours.
+            const day = periodStart("day", cut, zone);
+            const hours = await read(day, shift("day", day, 1, zone), "hour");
+            view.previousSame = add(ledgerOf(site, previous, previousFrom, day), ledgerOf(site, hours, day, from, cut));
+        }
+    }
+    if (splits && (period === "week" || period === "month")) {
+        // Whole days, so each hour of the day weighs the same in the rate.
+        const today = periodStart("day", now, zone);
+        const start = shift("day", today, -RATE_DAYS, zone);
+        if (start >= since) {
+            const days = ledgerOf(site, await read(start, today, "day"), start, today);
+            const toStart = Math.round((to - shift("day", today, 1, zone)) / DAY_MS);
+            view.rest = atRate(site, days, (to - now) / (today - start), toStart / RATE_DAYS);
+        }
+    } else if (splits && cut >= since) {
+        // A day and a year borrow the previous one from the same point on: the rest of that day by its hours, then days.
+        const day = periodStart("day", cut, zone);
+        const next = shift("day", day, 1, zone);
+        const hours = await read(day, next, "hour");
+        view.rest = add(ledgerOf(site, hours, day, next), ledgerOf(site, hours, day, next, cut), -1);
+        if (next < from) {
+            add(view.rest, ledgerOf(site, await read(next, from, "day"), next, from));
         }
     }
     return view;

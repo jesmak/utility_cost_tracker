@@ -275,8 +275,24 @@ describe("the card", () => {
         const high = await held(8);
         expect(all(high, ".estimate")).toHaveLength(1);
         expect(all(high, ".estimate-line")).toHaveLength(0);
-        // A card whose height follows its content has the box.
-        expect(all(await card({ show_bill: false }, answers), ".estimate")).toHaveLength(1);
+        // A card whose height follows its content has the box, where a month's rest is named by the days it is counted from.
+        const boxed = await card({ show_bill: false }, answers);
+        expect(all(boxed, ".estimate")).toHaveLength(1);
+        expect(text(boxed, ".estimate")).toContain("The rest by the last 14 days' costs");
+    });
+
+    it("has the estimate without the previous period's rows when the history has the last days but not that period whole", async () => {
+        const answers = monthBefore();
+        const recent = { ...site(), since: new Date(Date.now() - 20 * 86_400_000).toISOString() };
+        const young: HomeAssistant = {
+            ...answers,
+            callWS: async <T>(message: Record<string, unknown>) =>
+                (message.type === "utility_cost_tracker/site" ? recent : await answers.callWS!(message)) as T,
+        };
+        const box = text(await card({ show_bill: false }, young), ".estimate");
+        expect(box).toContain("The rest by the last 14 days' costs");
+        expect(box).not.toContain("The previous");
+        expect(text(await card({ show_bill: false }, answers), ".estimate")).toContain("The previous whole period");
     });
 
     it("gives a scale's numbers the decimals its step needs, however small the amounts", async () => {

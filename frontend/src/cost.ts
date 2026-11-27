@@ -165,12 +165,20 @@ export function listed(element: ShownElement, lines: Lines): ShownItem[] {
 }
 
 /**
- * The whole period's estimate: what it has cost so far, and the rest as it went in the previous period from the same
- * point to its end.
+ * The rest of a period at the rate of the days before it: `share` of what those days held. A daily fee comes whole at
+ * each midnight, so it takes `feeShare`, the days still to start over the days counted. A longer fee has already come
+ * for the period, however many of them the days before happened to hold.
  */
-export function estimate(soFar: number, previous: number, previousSame: number): { rest: number; total: number } {
-    const rest = previous - previousSame;
-    return { rest, total: soFar + rest };
+export function atRate(site: Site, days: Ledger, share: number, feeShare: number): Ledger {
+    const rest = add(emptyLedger(), days, share);
+    for (const item of site.items) {
+        const amount = days.items[item.id];
+        if (item.kind === "fixed_fee" && amount) {
+            const factor = item.fee_period === "day" ? feeShare : 0;
+            rest.items[item.id] = { amount: amount.amount * factor, tax: amount.tax * factor };
+        }
+    }
+    return rest;
 }
 
 /**

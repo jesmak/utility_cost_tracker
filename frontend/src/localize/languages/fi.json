@@ -35,6 +35,7 @@
         "estimate_short": "arvio {amount}",
         "so_far": "Tähän asti",
         "rest": "Loppu kuten edellisessä jaksossa",
+        "rest_rate": "Loppuosa viimeisen {days} päivän kulujen perusteella",
         "previous_same": "Edellinen samaan aikaan",
         "previous_whole": "Edellinen koko jakso",
         "previous": "Edellinen jakso",

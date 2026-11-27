@@ -35,6 +35,7 @@
         "estimate_short": "estimate {amount}",
         "so_far": "So far",
         "rest": "The rest as in the previous period",
+        "rest_rate": "The rest by the last {days} days' costs",
         "previous_same": "The previous at the same point",
         "previous_whole": "The previous whole period",
         "previous": "The previous period",

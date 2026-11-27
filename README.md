@@ -234,13 +234,20 @@ period and the total. Tapping the period there changes it to the next one the si
 
 ### The estimate
 
-For the period under way, the card estimates what the whole period will cost. It is what the period has cost so far,
-and the rest as it went in the previous period from the same point to its end. At noon on 12 November, a year's estimate is this year so far
-and last year from noon on 12 November to the end of December. A month borrows the rest from the month before it.
+For the period under way, the card estimates what the whole period will cost. It is what the period has cost so far
+and an estimate of the rest, which each period counts in the way that suits it.
 
-The estimate needs the whole previous period in the statistics, so a month's comes in the second whole month after the
-site was added, and a year's in the second whole year. Until then, and for an hour, there is none. An earlier period
-is compared with the one before it instead.
+- **A day and a year** take the rest as it went in the previous one from the same point to its end. At noon on
+  12 November, a year's estimate is this year so far and last year from noon on 12 November to the end of December. A
+  day's is today so far and yesterday from the same time of day on.
+- **A week and a month** take the rest at the rate of the last 14 whole days, whichever period those days were in. A
+  daily fixed fee is counted once for each day still to start, and a monthly one not at all, as the month already has it.
+- **An hour** has no estimate.
+
+The estimate needs that much history in the statistics. A week's and a month's come once the site has 14 whole days of
+it, a day's a day after the site was added, and a year's a year after it. With the whole previous period in the
+statistics, the estimate also shows what that period cost in all and up to the same point. An earlier period is compared
+with the one before it instead.
 
 ### The chart
 

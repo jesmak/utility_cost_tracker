@@ -19,6 +19,9 @@ export const REFRESH_MS = 60_000;
  */
 export const STATISTICS_DELAY_MS = 90_000;
 
+/** How many whole days before today give the rate a week's and a month's estimate counts the rest of the period at. */
+export const RATE_DAYS = 14;
+
 /** An icon per utility, as the integration's sensors have. */
 export const ICONS: Record<string, string> = {
     electricity: "mdi:lightning-bolt",

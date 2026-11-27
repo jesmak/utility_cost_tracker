@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { add, averagePrice, emptyLedger, estimate, listed, shown } from "../src/cost";
+import { add, atRate, averagePrice, emptyLedger, listed, shown } from "../src/cost";
 import type { Options } from "../src/cost";
 
 import { ledger, site } from "./site";
@@ -82,9 +82,18 @@ describe("the bill shown", () => {
     });
 });
 
-it("the estimate is the period so far and the rest as it went in the previous period", () => {
-    // On 12 November: this year so far 900, last year 1000 in all and 820 by 12 November.
-    expect(estimate(900, 1000, 820)).toEqual({ rest: 180, total: 1080 });
+it("the rest at the days' rate takes a daily fee by the days to start, and no longer fee", () => {
+    const daily = { ...site().items[2], id: "daily", fee_period: "day" as const };
+    const home = { ...site(), items: [...site().items, daily] };
+    // 14 days that held a month's first day: 28 in usage, the month's fee of 3, and 14 daily fees of 0.5.
+    const days = ledger({ spot: 28, monthly: 3, daily: 7 }, 280);
+    // Five and a half days are left, five of them still to start.
+    const rest = atRate(home, days, 5.5 / 14, 5 / 14);
+    expect(rest.items.spot.amount).toBeCloseTo(11);
+    expect(rest.items.spot.tax).toBeCloseTo(11 * 0.255);
+    expect(rest.items.monthly).toEqual({ amount: 0, tax: 0 });
+    expect(rest.items.daily.amount).toBeCloseTo(2.5);
+    expect(rest.consumption).toBeCloseTo(110);
 });
 
 it("lists what removed items cost under an element of their own, only in a period that has any", () => {

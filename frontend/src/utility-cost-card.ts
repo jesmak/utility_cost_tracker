@@ -10,8 +10,8 @@ import { LitElement, css, html, nothing } from "lit";
 import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
 
-import { CARD_VERSION, DEFAULT_SCROLL_INDICATOR, DOMAIN, ICONS, REFRESH_MS } from "./const";
-import { REMOVED, add, averagePrice, emptyLedger, estimate, inPeriod, listed, shown } from "./cost";
+import { CARD_VERSION, DEFAULT_SCROLL_INDICATOR, DOMAIN, ICONS, RATE_DAYS, REFRESH_MS } from "./const";
+import { REMOVED, add, averagePrice, emptyLedger, inPeriod, listed, shown } from "./cost";
 import type { Options, Segment, Shown } from "./cost";
 import { StatisticsCache, loadView } from "./data";
 import type { Column, View } from "./data";
@@ -437,9 +437,9 @@ export class UtilityCostCard extends LitElement {
         </div>`;
     }
 
-    /** The average price of the whole period as estimated: this one so far and the rest of the previous one. */
+    /** The average price of the whole period as estimated: this one so far and the rest as estimated. */
     private estimatedAverage(site: Site, view: View): number | undefined {
-        const whole = add(add(add(emptyLedger(), view.ledger), view.previous!), view.previousSame!, -1);
+        const whole = add(add(emptyLedger(), view.ledger), view.rest!);
         return averagePrice(site, shown(site, whole, view.period, this.options()), whole.consumption);
     }
 
@@ -478,50 +478,57 @@ export class UtilityCostCard extends LitElement {
             }`;
     }
 
-    /** The whole period's estimate, when this is the current period and the previous one is whole in the history. */
-    private estimated(site: Site, view: View, bill: Shown): { rest: number; total: number; previous: number; same: number } | undefined {
-        if (!view.previous || !view.previousSame) {
+    /** The whole period's estimate, when this is the current period and the history has what its rest is counted from. */
+    private estimated(site: Site, view: View, bill: Shown): { rest: number; total: number } | undefined {
+        if (!view.rest) {
             return undefined;
         }
-        const previous = shown(site, view.previous, view.period, this.options()).total;
-        const same = shown(site, view.previousSame, view.period, this.options()).total;
-        return { ...estimate(bill.total, previous, same), previous, same };
+        const rest = shown(site, view.rest, view.period, this.options()).total;
+        return { rest, total: bill.total + rest };
     }
 
     private estimate(site: Site, view: View, bill: Shown): TemplateResult | typeof nothing {
-        if (!view.previous) {
-            return nothing;
-        }
         const row = (label: string, value: TemplateResult | string, strong = false) =>
             html`<div class="row">
-                <span class="row-label" title=${this.text(label)}>${this.text(label)}</span
-                >${strong ? html`<b>${value}</b>` : html`<span>${value}</span>`}
+                <span class="row-label" title=${label}>${label}</span>${strong ? html`<b>${value}</b>` : html`<span>${value}</span>`}
             </div>`;
+        const previous = view.previous && shown(site, view.previous, view.period, this.options()).total;
         const guess = this.estimated(site, view, bill);
         if (!guess) {
             // An hour has no estimate, and a part of one doesn't compare with a whole one.
-            const previous = shown(site, view.previous, view.period, this.options()).total;
-            return html`<div class="part estimate">
-                ${row("card.previous", html`${this.money(site, previous)} ${view.current ? nothing : this.change(bill.total, previous)}`)}
-            </div>`;
+            return previous === undefined
+                ? nothing
+                : html`<div class="part estimate">
+                      ${row(
+                          this.text("card.previous"),
+                          html`${this.money(site, previous)} ${view.current ? nothing : this.change(bill.total, previous)}`,
+                      )}
+                  </div>`;
         }
+        const rated = view.period === "week" || view.period === "month";
+        const rest = rated ? this.text("card.rest_rate").replace("{days}", String(RATE_DAYS)) : this.text("card.rest");
+        const same = view.previousSame && shown(site, view.previousSame, view.period, this.options()).total;
         return html`<div class="part estimate">
-            ${row("card.estimate", this.money(site, guess.total), true)}
+            ${row(this.text("card.estimate"), this.money(site, guess.total), true)}
             <div class="progress"><i style="width: ${view.elapsed * 100}%"></i></div>
-            ${row("card.so_far", this.money(site, bill.total))} ${row("card.rest", `+ ${this.money(site, guess.rest)}`)}
-            ${row("card.previous_same", html`${this.money(site, guess.same)} ${this.change(bill.total, guess.same)}`)}
-            ${row("card.previous_whole", this.money(site, guess.previous))}
+            ${row(this.text("card.so_far"), this.money(site, bill.total))} ${row(rest, `+ ${this.money(site, guess.rest)}`)}
+            ${
+                previous === undefined || same === undefined
+                    ? nothing
+                    : html`${row(this.text("card.previous_same"), html`${this.money(site, same)} ${this.change(bill.total, same)}`)}
+                      ${row(this.text("card.previous_whole"), this.money(site, previous))}`
+            }
         </div>`;
     }
 
     /** The estimate as a line under the total, for a card held too low for the estimate's box. */
     private estimateLine(site: Site, view: View, bill: Shown): TemplateResult | typeof nothing {
-        if (!view.previous) {
-            return nothing;
-        }
         const guess = this.estimated(site, view, bill);
         if (guess) {
             return html`<div class="estimate-line">${this.text("card.estimate")} <b>${this.money(site, guess.total)}</b></div>`;
+        }
+        if (!view.previous) {
+            return nothing;
         }
         const previous = shown(site, view.previous, view.period, this.options()).total;
         return html`<div class="estimate-line">
@@ -836,7 +843,6 @@ export class UtilityCostCard extends LitElement {
         </div>`;
     }
 
-    /** The period's name, and a second line that places it, when it needs one. */
     /** The period's name, what is said under it, and for a month a brief name for where the long one doesn't fit. */
     private label(view: View): [string, string, string?] {
         const date = (at: number, options: Intl.DateTimeFormatOptions) =>

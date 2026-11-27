@@ -602,6 +602,7 @@ var DOMAIN = "utility_cost_tracker";
 var DEFAULT_SCROLL_INDICATOR = "both";
 var REFRESH_MS = 6e4;
 var STATISTICS_DELAY_MS = 9e4;
+var RATE_DAYS = 14;
 var ICONS = {
   electricity: "mdi:lightning-bolt",
   water: "mdi:water",
@@ -800,9 +801,16 @@ function removedItems(site, ledger, options, result) {
 function listed(element, lines) {
   return lines === "all" ? element.items : lines === "picked" ? element.items.filter((item) => item.color) : [];
 }
-function estimate(soFar, previous, previousSame) {
-  const rest = previous - previousSame;
-  return { rest, total: soFar + rest };
+function atRate(site, days, share, feeShare) {
+  const rest = add(emptyLedger(), days, share);
+  for (const item of site.items) {
+    const amount = days.items[item.id];
+    if (item.kind === "fixed_fee" && amount) {
+      const factor = item.fee_period === "day" ? feeShare : 0;
+      rest.items[item.id] = { amount: amount.amount * factor, tax: amount.tax * factor };
+    }
+  }
+  return rest;
 }
 function averagePrice(site, bill, consumption) {
   const metered = bill.elements.flatMap((element) => element.items).filter((item) => item.item.kind !== "fixed_fee" && item.item.kind !== "removed").reduce((sum, item) => sum + item.value, 0);
@@ -811,6 +819,7 @@ function averagePrice(site, bill, consumption) {
 
 // src/data.ts
 var HOUR_MS2 = 36e5;
+var DAY_MS = 24 * HOUR_MS2;
 var BUCKETS = { hour: "hour", day: "hour", week: "hour", month: "day", year: "day" };
 var FIVE_MINUTES_MS = 3e5;
 var StatisticsCache = class {
@@ -952,20 +961,39 @@ async function loadView(hass, cache, site, period, offset, now, wants) {
       view.line = await line(hass, cache, site, period, from, to, now, rows, current ? unwritten.consumption : 0);
     }
   }
+  if (!wants.previous) {
+    return view;
+  }
   const previousFrom = shift(period, from, -1, zone);
-  if (wants.previous && previousFrom >= since) {
+  const cut = Math.min(shift(period, now, -1, zone), from);
+  const splits = current && period !== "hour";
+  if (previousFrom >= since) {
     const bucket = period === "hour" || period === "day" ? "hour" : "day";
     const previous = await read2(previousFrom, from, bucket);
     view.previous = ledgerOf(site, previous, previousFrom, from);
-    if (current && period !== "hour") {
-      const cut = Math.min(previousFrom + (now - from), from);
-      if (bucket === "hour") {
-        view.previousSame = ledgerOf(site, previous, previousFrom, from, cut);
-      } else {
-        const day = periodStart("day", cut, zone);
-        const hours = await read2(day, shift("day", day, 1, zone), "hour");
-        view.previousSame = add(ledgerOf(site, previous, previousFrom, day), ledgerOf(site, hours, day, from, cut));
-      }
+    if (splits && bucket === "hour") {
+      view.previousSame = ledgerOf(site, previous, previousFrom, from, cut);
+    } else if (splits) {
+      const day = periodStart("day", cut, zone);
+      const hours = await read2(day, shift("day", day, 1, zone), "hour");
+      view.previousSame = add(ledgerOf(site, previous, previousFrom, day), ledgerOf(site, hours, day, from, cut));
+    }
+  }
+  if (splits && (period === "week" || period === "month")) {
+    const today = periodStart("day", now, zone);
+    const start = shift("day", today, -RATE_DAYS, zone);
+    if (start >= since) {
+      const days = ledgerOf(site, await read2(start, today, "day"), start, today);
+      const toStart = Math.round((to - shift("day", today, 1, zone)) / DAY_MS);
+      view.rest = atRate(site, days, (to - now) / (today - start), toStart / RATE_DAYS);
+    }
+  } else if (splits && cut >= since) {
+    const day = periodStart("day", cut, zone);
+    const next = shift("day", day, 1, zone);
+    const hours = await read2(day, next, "hour");
+    view.rest = add(ledgerOf(site, hours, day, next), ledgerOf(site, hours, day, next, cut), -1);
+    if (next < from) {
+      add(view.rest, ledgerOf(site, await read2(next, from, "day"), next, from));
     }
   }
   return view;
@@ -1149,6 +1177,7 @@ var en_default = {
     estimate_short: "estimate {amount}",
     so_far: "So far",
     rest: "The rest as in the previous period",
+    rest_rate: "The rest by the last {days} days' costs",
     previous_same: "The previous at the same point",
     previous_whole: "The previous whole period",
     previous: "The previous period",
@@ -1244,6 +1273,7 @@ var fi_default = {
     estimate_short: "arvio {amount}",
     so_far: "T\xE4h\xE4n asti",
     rest: "Loppu kuten edellisess\xE4 jaksossa",
+    rest_rate: "Loppuosa viimeisen {days} p\xE4iv\xE4n kulujen perusteella",
     previous_same: "Edellinen samaan aikaan",
     previous_whole: "Edellinen koko jakso",
     previous: "Edellinen jakso",
@@ -1920,9 +1950,9 @@ var UtilityCostCard = class extends i4 {
             </div>
         </div>`;
   }
-  /** The average price of the whole period as estimated: this one so far and the rest of the previous one. */
+  /** The average price of the whole period as estimated: this one so far and the rest as estimated. */
   estimatedAverage(site, view) {
-    const whole = add(add(add(emptyLedger(), view.ledger), view.previous), view.previousSame, -1);
+    const whole = add(add(emptyLedger(), view.ledger), view.rest);
     return averagePrice(site, shown(site, whole, view.period, this.options()), whole.consumption);
   }
   /**
@@ -1953,46 +1983,47 @@ var UtilityCostCard = class extends i4 {
     const average = averagePrice(site, bill, used);
     return b2`<b>${this.number(used, used < 10 ? 2 : 1)}${site.unit ? ` ${site.unit}` : ""}</b>${average === void 0 ? A : b2` · ${this.text("card.average").replace("{price}", "")}<b>${this.price(site, average)}</b>`}`;
   }
-  /** The whole period's estimate, when this is the current period and the previous one is whole in the history. */
+  /** The whole period's estimate, when this is the current period and the history has what its rest is counted from. */
   estimated(site, view, bill) {
-    if (!view.previous || !view.previousSame) {
+    if (!view.rest) {
       return void 0;
     }
-    const previous = shown(site, view.previous, view.period, this.options()).total;
-    const same = shown(site, view.previousSame, view.period, this.options()).total;
-    return { ...estimate(bill.total, previous, same), previous, same };
+    const rest = shown(site, view.rest, view.period, this.options()).total;
+    return { rest, total: bill.total + rest };
   }
   estimate(site, view, bill) {
-    if (!view.previous) {
-      return A;
-    }
     const row = (label, value, strong = false) => b2`<div class="row">
-                <span class="row-label" title=${this.text(label)}>${this.text(label)}</span
-                >${strong ? b2`<b>${value}</b>` : b2`<span>${value}</span>`}
+                <span class="row-label" title=${label}>${label}</span>${strong ? b2`<b>${value}</b>` : b2`<span>${value}</span>`}
             </div>`;
+    const previous = view.previous && shown(site, view.previous, view.period, this.options()).total;
     const guess = this.estimated(site, view, bill);
     if (!guess) {
-      const previous = shown(site, view.previous, view.period, this.options()).total;
-      return b2`<div class="part estimate">
-                ${row("card.previous", b2`${this.money(site, previous)} ${view.current ? A : this.change(bill.total, previous)}`)}
-            </div>`;
+      return previous === void 0 ? A : b2`<div class="part estimate">
+                      ${row(
+        this.text("card.previous"),
+        b2`${this.money(site, previous)} ${view.current ? A : this.change(bill.total, previous)}`
+      )}
+                  </div>`;
     }
+    const rated = view.period === "week" || view.period === "month";
+    const rest = rated ? this.text("card.rest_rate").replace("{days}", String(RATE_DAYS)) : this.text("card.rest");
+    const same = view.previousSame && shown(site, view.previousSame, view.period, this.options()).total;
     return b2`<div class="part estimate">
-            ${row("card.estimate", this.money(site, guess.total), true)}
+            ${row(this.text("card.estimate"), this.money(site, guess.total), true)}
             <div class="progress"><i style="width: ${view.elapsed * 100}%"></i></div>
-            ${row("card.so_far", this.money(site, bill.total))} ${row("card.rest", `+ ${this.money(site, guess.rest)}`)}
-            ${row("card.previous_same", b2`${this.money(site, guess.same)} ${this.change(bill.total, guess.same)}`)}
-            ${row("card.previous_whole", this.money(site, guess.previous))}
+            ${row(this.text("card.so_far"), this.money(site, bill.total))} ${row(rest, `+ ${this.money(site, guess.rest)}`)}
+            ${previous === void 0 || same === void 0 ? A : b2`${row(this.text("card.previous_same"), b2`${this.money(site, same)} ${this.change(bill.total, same)}`)}
+                      ${row(this.text("card.previous_whole"), this.money(site, previous))}`}
         </div>`;
   }
   /** The estimate as a line under the total, for a card held too low for the estimate's box. */
   estimateLine(site, view, bill) {
-    if (!view.previous) {
-      return A;
-    }
     const guess = this.estimated(site, view, bill);
     if (guess) {
       return b2`<div class="estimate-line">${this.text("card.estimate")} <b>${this.money(site, guess.total)}</b></div>`;
+    }
+    if (!view.previous) {
+      return A;
     }
     const previous = shown(site, view.previous, view.period, this.options()).total;
     return b2`<div class="estimate-line">
@@ -2235,7 +2266,6 @@ var UtilityCostCard = class extends i4 {
     )}
         </div>`;
   }
-  /** The period's name, and a second line that places it, when it needs one. */
   /** The period's name, what is said under it, and for a month a brief name for where the long one doesn't fit. */
   label(view) {
     const date = (at, options) => new Intl.DateTimeFormat(this.language(), { ...options, timeZone: this.zone() }).format(at);
@@ -2343,11 +2373,11 @@ var UtilityCostCard = class extends i4 {
       parts.push(HEADER_HEIGHT);
       if (shows(config, "show_periods")) parts.push(PERIODS_HEIGHT);
       parts.push(shows(config, "show_earlier") ? EARLIER_HEIGHT : LABEL_HEIGHT);
-      const estimate2 = shows(config, "show_estimate");
+      const estimate = shows(config, "show_estimate");
       parts.push(
-        TOTAL_HEIGHT + (shows(config, "show_consumption") ? CONSUMPTION_HEIGHT : 0) + (estimate2 && !boxed ? ESTIMATE_LINE_HEIGHT : 0)
+        TOTAL_HEIGHT + (shows(config, "show_consumption") ? CONSUMPTION_HEIGHT : 0) + (estimate && !boxed ? ESTIMATE_LINE_HEIGHT : 0)
       );
-      if (estimate2 && boxed) parts.push(ESTIMATE_HEIGHT);
+      if (estimate && boxed) parts.push(ESTIMATE_HEIGHT);
     } else {
       parts.push(this.narrowable() && this.columns() < 12 ? COMPACT_NARROW_HEIGHT : COMPACT_HEIGHT);
     }

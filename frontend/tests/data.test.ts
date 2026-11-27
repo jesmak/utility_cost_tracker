@@ -19,7 +19,7 @@ const SINCE = at("2026-09-30T21:00:00Z");
  * not written yet, and the rows are answered by the hour, the day or the month as the recorder does, or by five minutes
  * for a meter's own statistics.
  */
-function recorder(rates: Record<string, number>, since = SINCE, zone = ZONE) {
+function recorder(rates: Record<string, number>, since = SINCE, zone = ZONE, now = NOW) {
     const asked: Record<string, unknown>[] = [];
     const hass: HomeAssistant = {
         config: { time_zone: zone },
@@ -30,7 +30,7 @@ function recorder(rates: Record<string, number>, since = SINCE, zone = ZONE) {
             const five = message.period === "5minute";
             const bucket = five ? "hour" : (message.period as "hour" | "day" | "month");
             const next = (start: number) => (five ? start + HOUR / 12 : shift(bucket, start, 1, zone));
-            const written = five ? NOW - (NOW % (HOUR / 12)) : periodStart("hour", NOW, zone);
+            const written = five ? now - (now % (HOUR / 12)) : periodStart("hour", now, zone);
             const answer: Record<string, { start: number; end: number; change: number; sum: number }[]> = {};
             for (const id of message.statistic_ids as string[]) {
                 if (!(id in rates)) {
@@ -230,9 +230,9 @@ describe("the previous period", () => {
     it("is read whole and up to the point this period is at, to the minute", async () => {
         const view = await load(recorder(RATES).hass, "month", 0);
         expect(view.previous!.items.spot.amount).toBeCloseTo(0.1 * (31 * 24 + 1));
-        // 24 days, 15 hours and 40 minutes into the month.
-        expect(view.previousSame!.items.spot.amount).toBeCloseTo(0.1 * (24 * 24 + 15 + 40 / 60));
-        expect(view.previousSame!.consumption).toBeCloseTo(2 * (24 * 24 + 15 + 40 / 60));
+        // To 15:40 on the 25th, a day an hour longer as summer time ended on it.
+        expect(view.previousSame!.items.spot.amount).toBeCloseTo(0.1 * (24 * 24 + 16 + 40 / 60));
+        expect(view.previousSame!.consumption).toBeCloseTo(2 * (24 * 24 + 16 + 40 / 60));
     });
 
     it("of a day is read by its hours", async () => {
@@ -262,6 +262,67 @@ describe("the previous period", () => {
         const view = await load(hass, "month", 0, { chart: false, previous: false });
         expect(view.previous).toBeUndefined();
         expect(asked).toEqual([]);
+    });
+});
+
+describe("the rest of the period under way", () => {
+    // From 15:40 to midnight.
+    const TODAY_LEFT = 8 + 20 / 60;
+    const previous = { chart: false, previous: true };
+
+    it("of a month and a week is counted at the rate of the last 14 whole days", async () => {
+        const month = await load(recorder(RATES).hass, "month", 0);
+        expect(month.rest!.items.spot.amount).toBeCloseTo(0.1 * (5 * 24 + TODAY_LEFT));
+        expect(month.rest!.consumption).toBeCloseTo(2 * (5 * 24 + TODAY_LEFT));
+        const week = await load(recorder(RATES).hass, "week", 0);
+        expect(week.rest!.items.spot.amount).toBeCloseTo(0.1 * (4 * 24 + TODAY_LEFT));
+    });
+
+    it("of a month needs no whole month before it, only the 14 days", async () => {
+        const enough = at("2026-11-10T22:00:00Z");
+        const view = await load(recorder(RATES, enough).hass, "month", 0, previous, site(enough));
+        expect(view.previous).toBeUndefined();
+        expect(view.rest!.items.spot.amount).toBeCloseTo(0.1 * (5 * 24 + TODAY_LEFT));
+        const short = at("2026-11-11T09:00:00Z");
+        expect((await load(recorder(RATES, short).hass, "month", 0, previous, site(short))).rest).toBeUndefined();
+    });
+
+    it("of a day is yesterday from the same time on", async () => {
+        const view = await load(recorder(RATES).hass, "day", 0);
+        expect(view.rest!.items.spot.amount).toBeCloseTo(0.1 * TODAY_LEFT);
+        expect(view.rest!.consumption).toBeCloseTo(2 * TODAY_LEFT);
+    });
+
+    it("of a year is last year from the same date on, though the history has no more of that year", async () => {
+        const since = at("2025-11-20T22:00:00Z");
+        const view = await load(recorder(RATES, since).hass, "year", 0, previous, site(since));
+        expect(view.previous).toBeUndefined();
+        // The rest of 25 November, and the 36 days from the 26th to the year's end.
+        expect(view.rest!.items.spot.amount).toBeCloseTo(0.1 * (TODAY_LEFT + 36 * 24));
+        expect((await load(recorder(RATES).hass, "year", 0)).rest).toBeUndefined();
+    });
+
+    it("counts the time left and the days to start across the day summer time starts on", async () => {
+        const daily = { ...exampleSite().items[2], id: "daily", fee_period: "day" as const };
+        const fee = { cost_statistic: "utility_cost_tracker:home_daily_cost", tax_statistic: "utility_cost_tracker:home_daily_tax" };
+        const home = { ...site(), items: [...site().items, { ...daily, ...fee }] };
+        const rates = { ...RATES, [fee.cost_statistic]: 0.01 };
+        const rest = async (now: number, period: "week" | "month") =>
+            (await loadView(recorder(rates, SINCE, ZONE, now).hass, new StatisticsCache(), home, period, 0, now, previous)).rest!;
+        // Thursday 25 March 2027 at noon. The clocks go forward on Sunday the 28th, a day of 23 hours.
+        const before = at("2027-03-25T10:00:00Z");
+        const month = await rest(before, "month");
+        expect(month.items.spot.amount).toBeCloseTo(0.1 * (6.5 * 24 - 1));
+        // Six days are still to start, of the 14 that held 24 hours of the fee each.
+        expect(month.items.daily.amount).toBeCloseTo(0.01 * 24 * 6);
+        expect((await rest(before, "week")).items.spot.amount).toBeCloseTo(0.1 * (3.5 * 24 - 1));
+        // On the 30th the short day is among the 14, and the rate is still what an hour holds.
+        expect((await rest(at("2027-03-30T09:00:00Z"), "month")).items.spot.amount).toBeCloseTo(0.1 * 36);
+    });
+
+    it("is none for an hour or an earlier period", async () => {
+        expect((await load(recorder(RATES).hass, "hour", 0)).rest).toBeUndefined();
+        expect((await load(recorder(RATES).hass, "month", -1)).rest).toBeUndefined();
     });
 });
 
