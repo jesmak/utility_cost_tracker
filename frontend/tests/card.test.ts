@@ -58,6 +58,26 @@ function monthBefore(): HomeAssistant {
     };
 }
 
+/** A recorder where the site consumed an amount in the first day of whatever is asked, and nothing since. */
+function consumed(change: number, unit = "kWh"): HomeAssistant {
+    return {
+        ...hass(),
+        callWS: async <T>(message: Record<string, unknown>) =>
+            (message.type === "utility_cost_tracker/site"
+                ? { ...site(), unit }
+                : {
+                      "utility_cost_tracker:home_consumption": [
+                          {
+                              start: Date.parse(message.start_time as string),
+                              end: Date.parse(message.start_time as string) + 24 * 3_600_000,
+                              change,
+                              sum: change,
+                          },
+                      ],
+                  }) as T,
+    };
+}
+
 async function card(config: Record<string, unknown> = {}, from = hass()): Promise<UtilityCostCard> {
     const element = document.createElement("utility-cost-card") as UtilityCostCard;
     element.setConfig({ type: "custom:utility-cost-card", site: "home", ...config } as never);
@@ -261,24 +281,15 @@ describe("the card", () => {
 
     it("gives a scale's numbers the decimals its step needs, however small the amounts", async () => {
         // Half a thousandth of a kWh in the month's first day, on a site whose bars are all empty.
-        const answers = {
-            ...hass(),
-            callWS: async <T>(message: Record<string, unknown>) =>
-                (message.type === "utility_cost_tracker/site"
-                    ? site()
-                    : {
-                          "utility_cost_tracker:home_consumption": [
-                              {
-                                  start: Date.parse(message.start_time as string),
-                                  end: Date.parse(message.start_time as string) + 24 * 3_600_000,
-                                  change: 0.024,
-                                  sum: 0.024,
-                              },
-                          ],
-                      }) as T,
-        };
+        const answers = consumed(0.024);
         const element = await card({ show_estimate: false }, answers);
-        expect(rows(element, ".scale.rate")).toEqual(["kWh/h 0.001 0.0005"]);
+        expect(rows(element, ".scale.rate")).toEqual(["kW 0.001 0.0005"]);
+    });
+
+    it("has the line's scale per hour, with an energy's hours cancelled out into a power", async () => {
+        const scale = async (unit: string) => rows(await card({ show_estimate: false }, consumed(4.8, unit)), ".scale.rate")[0];
+        expect(await scale("MWh")).toMatch(/^MW /);
+        expect(await scale("m³")).toMatch(/^m³\/h /);
     });
 
     it("has each axis label centred under the bar it names", async () => {
@@ -327,27 +338,12 @@ describe("the card", () => {
 
     it("draws the consumption as a line over the bars, up to the part under way, unless switched off", async () => {
         // 4.8 kWh in the month's first day, which is 0.2 an hour, and nothing written since.
-        const used = {
-            ...hass(),
-            callWS: async <T>(message: Record<string, unknown>) =>
-                (message.type === "utility_cost_tracker/site"
-                    ? site()
-                    : {
-                          "utility_cost_tracker:home_consumption": [
-                              {
-                                  start: Date.parse(message.start_time as string),
-                                  end: Date.parse(message.start_time as string) + 24 * 3_600_000,
-                                  change: 4.8,
-                                  sum: 4.8,
-                              },
-                          ],
-                      }) as T,
-        };
+        const used = consumed(4.8);
         const element = await card({ show_estimate: false }, used);
         const points = element.shadowRoot!.querySelector(".usage-line polyline")!.getAttribute("points")!.split(" ");
         expect(points).toEqual(["0.500,0.00"]);
         // The scale has two steps when nothing has cost anything, and the line's follows it.
-        expect(rows(element, ".scale.rate")).toEqual(["kWh/h 0.2 0.1"]);
+        expect(rows(element, ".scale.rate")).toEqual(["kW 0.2 0.1"]);
         expect(text(element, ".scale.cost")).toBe("€");
         expect(all(await card({ show_estimate: false, show_usage: false }), ".usage-line")).toHaveLength(0);
     });

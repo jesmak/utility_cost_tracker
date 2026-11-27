@@ -747,9 +747,10 @@ export class UtilityCostCard extends LitElement {
         this.offset = Math.round((periodStart(part, start, zone) - periodStart(part, Date.now(), zone)) / span);
     }
 
-    /** The unit of consumption per hour, which for energy in kWh is the power in kW. */
+    /** The unit of consumption per hour. An energy's hours cancel out, so kWh an hour is kW. */
     private rateUnit(site: Site): string {
-        return site.unit ? `${site.unit}/h` : "/h";
+        const power = /^(.*W)h$/.exec(site.unit ?? "")?.[1];
+        return power ?? (site.unit ? `${site.unit}/h` : "/h");
     }
 
     private bill(site: Site, bill: Shown): TemplateResult {
@@ -1333,7 +1334,7 @@ export class UtilityCostCard extends LitElement {
                 .now::before {
                     content: "· ";
                 }
-                .unit {
+                .now .unit {
                     display: none;
                 }
                 .guess {
@@ -1711,7 +1712,7 @@ export class UtilityCostCard extends LitElement {
                     .now::before {
                         content: none;
                     }
-                    .unit {
+                    .now .unit {
                         display: inline;
                     }
                 }
