@@ -86,7 +86,8 @@ export function inPeriod(item: SiteItem, period: Period): boolean {
  */
 export function elementColor(site: Site, element: SiteElement, colors: Record<string, string> = {}): string {
     const picked = colors[element.id];
-    if (picked) {
+    // The colour picker's own word for no colour, should one be written by hand.
+    if (picked && picked !== "default") {
         return /^[a-z-]+$/.test(picked) ? `var(--${picked}-color)` : picked;
     }
     return ELEMENT_COLORS[site.elements.indexOf(element) % ELEMENT_COLORS.length];

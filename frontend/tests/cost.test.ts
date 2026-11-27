@@ -68,6 +68,8 @@ describe("the bill shown", () => {
         // An element without a picked colour keeps the one of its place.
         const one = shown(site(), MONTH, "month", options({ colors: { energy: "teal" } }));
         expect(one.elements[1].color).toBe(plain.elements[1].color);
+        const none = shown(site(), MONTH, "month", options({ colors: { energy: "default" } }));
+        expect(none.elements[0].color).toBe(plain.elements[0].color);
     });
 
     it("gives two picked items of one element different colours", () => {

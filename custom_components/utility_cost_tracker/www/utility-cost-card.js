@@ -724,7 +724,7 @@ function inPeriod(item, period) {
 }
 function elementColor(site, element, colors = {}) {
   const picked = colors[element.id];
-  if (picked) {
+  if (picked && picked !== "default") {
     return /^[a-z-]+$/.test(picked) ? `var(--${picked}-color)` : picked;
   }
   return ELEMENT_COLORS[site.elements.indexOf(element) % ELEMENT_COLORS.length];
