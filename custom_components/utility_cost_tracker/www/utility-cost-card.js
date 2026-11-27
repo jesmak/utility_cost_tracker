@@ -610,12 +610,11 @@ var ICONS = {
   district_heating: "mdi:radiator",
   other: "mdi:cash"
 };
-var ELEMENT_COLORS = [
-  "var(--utility-cost-color-1, var(--primary-color, #03a9f4))",
-  "var(--utility-cost-color-2, var(--purple-color, #926bc7))",
-  "var(--utility-cost-color-3, var(--success-color, #43a047))",
-  "var(--utility-cost-color-4, var(--warning-color, #ffa600))"
-];
+var ELEMENT_COLOR_NAMES = ["primary", "purple", "success", "warning"];
+var FALLBACKS = ["#03a9f4", "#926bc7", "#43a047", "#ffa600"];
+var ELEMENT_COLORS = ELEMENT_COLOR_NAMES.map(
+  (name, index) => `var(--utility-cost-color-${index + 1}, var(--${name}-color, ${FALLBACKS[index]}))`
+);
 
 // src/periods.ts
 var PERIODS = ["hour", "day", "week", "month", "year"];
@@ -723,10 +722,14 @@ var REMOVED_COLOR = "var(--secondary-text-color)";
 function inPeriod(item, period) {
   return item.kind !== "fixed_fee" || item.fee_period === null || covers(period, item.fee_period);
 }
-function elementColor(site, element) {
+function elementColor(site, element, colors = {}) {
+  const picked = colors[element.id];
+  if (picked) {
+    return /^[a-z-]+$/.test(picked) ? `var(--${picked}-color)` : picked;
+  }
   return ELEMENT_COLORS[site.elements.indexOf(element) % ELEMENT_COLORS.length];
 }
-function itemColor(site, item, picked) {
+function itemColor(site, item, picked, colors) {
   const mine = site.items.filter((other) => other.element === item.element && picked.includes(other.id));
   const place = mine.indexOf(item);
   const element = site.elements.find((candidate) => candidate.id === item.element);
@@ -734,7 +737,7 @@ function itemColor(site, item, picked) {
     return void 0;
   }
   const share = Math.round(68 - place * (48 / mine.length));
-  return `color-mix(in srgb, ${elementColor(site, element)} ${share}%, var(--primary-text-color))`;
+  return `color-mix(in srgb, ${elementColor(site, element, colors)} ${share}%, var(--primary-text-color))`;
 }
 function shown(site, ledger, period, options) {
   const result = { elements: [], beforeTax: 0, tax: 0, total: 0, segments: [] };
@@ -742,7 +745,7 @@ function shown(site, ledger, period, options) {
     if (options.hidden.includes(element.id)) {
       continue;
     }
-    const color = elementColor(site, element);
+    const color = elementColor(site, element, options.colors);
     const items = [];
     const picked = [];
     let beforeTax = 0;
@@ -755,7 +758,7 @@ function shown(site, ledger, period, options) {
       const amount = ledger.items[item.id] ?? { amount: 0, tax: 0 };
       beforeTax += amount.amount;
       tax += amount.tax;
-      const own = itemColor(site, item, options.picked);
+      const own = itemColor(site, item, options.picked, options.colors);
       items.push({ item, value: amount.amount + (options.tax === "included" ? amount.tax : 0), color: own });
       const part = amount.amount + (options.tax === "none" ? 0 : amount.tax);
       if (own) {
@@ -1170,7 +1173,6 @@ var en_default = {
     week: "Week {number}",
     earlier: "Earlier period",
     later: "Later period",
-    next_period: "Change the period",
     average: "average {price}",
     average_short: "avg. {price}",
     estimate: "Estimate for the whole period",
@@ -1223,6 +1225,7 @@ var en_default = {
     hidden_elements_helper: "A hidden element is left out of the total, the chart and the estimate too",
     picked_items: "Picked lines",
     picked_items_helper: "A picked line gets a colour of its own in the legend, the bars and the share bar",
+    colors: "Element colours",
     row_step: "Rounding in a sections view",
     row_step_helper: "With automatic row height, the card's height is rounded up to whole rows, or to half rows to save space.",
     row_step_full: "Whole rows",
@@ -1266,7 +1269,6 @@ var fi_default = {
     week: "Viikko {number}",
     earlier: "Aiempi jakso",
     later: "My\xF6hempi jakso",
-    next_period: "Vaihda jaksoa",
     average: "keskim\xE4\xE4rin {price}",
     average_short: "ka. {price}",
     estimate: "Arvio koko jaksolle",
@@ -1319,6 +1321,7 @@ var fi_default = {
     hidden_elements_helper: "Piilotettu osa j\xE4\xE4 pois my\xF6s summasta, kaaviosta ja arviosta",
     picked_items: "Eritellyt rivit",
     picked_items_helper: "Eritelty rivi saa oman v\xE4rins\xE4 selitteeseen, pylv\xE4isiin ja osuuspalkkiin",
+    colors: "Osien v\xE4rit",
     row_step: "Py\xF6ristys osioihin jaetussa n\xE4kym\xE4ss\xE4",
     row_step_helper: "Automaattisella rivikorkeudella kortin korkeus py\xF6ristet\xE4\xE4n yl\xF6sp\xE4in kokonaisiin riveihin, tai tilan s\xE4\xE4st\xE4miseksi puolikkaisiin riveihin.",
     row_step_full: "Kokonaisiin riveihin",
@@ -1524,6 +1527,18 @@ function schema(site, config, text) {
             }))
           }
         }
+      },
+      {
+        // Not flattened, so the colours are an object by the elements' ids.
+        name: "colors",
+        type: "expandable",
+        title: text("editor.colors"),
+        // An element without a colour shows the one of its place, which a theme may have changed.
+        schema: site.elements.map((element, index) => ({
+          name: element.id,
+          label: element.name,
+          selector: { ui_color: { default_color: ELEMENT_COLOR_NAMES[index % ELEMENT_COLOR_NAMES.length] } }
+        }))
       }
     ] : [],
     ...rowStepSchema(config, text),
@@ -1552,13 +1567,13 @@ var UtilityCostCardEditor = class extends i4 {
                 .hass=${this.hass}
                 .data=${{ ...DEFAULTS, ...scrollIndicatorData(rowStepData(this.config), DEFAULT_SCROLL_INDICATOR) }}
                 .schema=${schema(this.site, this.config, (key) => this.text(key))}
-                .computeLabel=${(entry) => this.text(`editor.${entry.name}`)}
+                .computeLabel=${(entry) => entry.label ?? this.text(`editor.${entry.name}`)}
                 .computeHelper=${(entry) => this.helper(entry.name)}
                 @value-changed=${this.valueChanged}
             ></ha-form>
         `;
   }
-  /** The site's elements and items, for the lists of the ones to hide and to pick. */
+  /** The site's elements and items, for the lists of the ones to hide, to pick and to colour. */
   readSite() {
     const entry = this.config.site;
     if (!this.hass?.callWS || entry === this.asked) {
@@ -1581,6 +1596,7 @@ var UtilityCostCardEditor = class extends i4 {
     if (config.site !== this.config.site) {
       delete config.hidden_elements;
       delete config.picked_items;
+      delete config.colors;
     }
     for (const key of ["title", "period", "site"]) {
       if (!config[key]) {
@@ -1591,6 +1607,12 @@ var UtilityCostCardEditor = class extends i4 {
       if (!config[key]?.length) {
         delete config[key];
       }
+    }
+    const colors = Object.entries(config.colors ?? {}).filter(([, color]) => color && color !== "default");
+    if (colors.length) {
+      config.colors = Object.fromEntries(colors);
+    } else {
+      delete config.colors;
     }
     for (const [key, value] of Object.entries(DEFAULTS)) {
       if (config[key] === value || config[key] === void 0 || config[key] === null) {
@@ -1854,6 +1876,7 @@ var UtilityCostCard = class extends i4 {
       tax: this.config?.tax ?? "included",
       hidden: this.config?.hidden_elements ?? [],
       picked: this.config?.picked_items ?? [],
+      colors: this.config?.colors ?? {},
       removed: this.text("card.removed")
     };
   }
@@ -1914,11 +1937,9 @@ var UtilityCostCard = class extends i4 {
             </div>
         `;
   }
-  /** Without the period switch and the earlier periods, the whole head is one row, and a tap on the period changes it. */
+  /** Without the period switch and the earlier periods, the whole head is one row. */
   compact(site, view, bill) {
     const config = this.config;
-    const followed = this.followed(site);
-    const next = followed[(followed.indexOf(view.period) + 1) % followed.length];
     const guess = shows(config, "show_estimate") ? this.estimated(site, view, bill) : void 0;
     const averages = shows(config, "show_consumption");
     const short = (value) => averages && value !== void 0 ? this.text("card.average_short").replace("{price}", this.price(site, value)) : void 0;
@@ -1939,9 +1960,7 @@ var UtilityCostCard = class extends i4 {
             <div class="badge"><ha-icon .icon=${ICONS[site.utility ?? ""] ?? ICONS.other}></ha-icon></div>
             <div class="names">
                 <b title=${this.heading(site)}>${this.heading(site)}</b>
-                ${followed.length > 1 ? b2`<button type="button" class="period" title=${this.text("card.next_period")} @click=${() => this.pick(next)}>
-                              ${period} <ha-icon icon="mdi:swap-horizontal"></ha-icon>
-                          </button>` : b2`<span class="period">${period}</span>`}
+                <span class="period">${period}</span>
             </div>
             ${guess ? b2`<div class="guess">
                           <span>${before}<b>${this.money(site, guess.total, 0)}</b>${after}</span>
@@ -2097,7 +2116,7 @@ var UtilityCostCard = class extends i4 {
     const digits = top > 0 && top < 0.05 ? 3 : 2;
     const rates = (view.line ?? []).filter((point) => point.end > point.start).map((point) => ({ at: (point.start + point.end) / 2, rate: point.amount * HOUR_MS3 / (point.end - point.start) }));
     const most = Math.max(...rates.map((point) => point.rate), 0);
-    const opens = Boolean(site.periods[part]) && (shows(this.config, "show_periods") || !shows(this.config, "show_earlier"));
+    const opens = Boolean(site.periods[part]) && shows(this.config, "show_periods");
     const hovered = this.hovered === void 0 ? void 0 : columns[this.hovered];
     const cost = scale(top);
     const rate = { step: niceUp(most / cost.steps), steps: cost.steps };
@@ -2557,7 +2576,6 @@ var UtilityCostCard = class extends i4 {
                 .name,
                 .names b,
                 .names span,
-                .names button,
                 .value small,
                 .row-label,
                 .line-name,
@@ -2689,15 +2707,12 @@ var UtilityCostCard = class extends i4 {
                     line-height: 20px;
                 }
                 .names b,
-                .names span,
-                .names button {
+                .names span {
                     max-width: 100%;
                 }
-                .names span,
-                .names button {
+                .names span {
                     font-size: 12px;
                     color: var(--secondary-text-color);
-                    --mdc-icon-size: 13px;
                 }
                 .value {
                     /* Gives way before the name and the period do, down to the total and the average. */
@@ -3095,8 +3110,7 @@ var UtilityCostCard = class extends i4 {
                     }
                     /* A long name and a long period share the line, each cut short by its share. */
                     .names b,
-                    .names span,
-                    .names button {
+                    .names span {
                         min-width: 0;
                     }
                     .value {

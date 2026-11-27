@@ -228,6 +228,7 @@ the card is inside, even in a sections view.
 | `lines`            | string  | Which items the bill lists under their elements, `all`, only the `picked` ones, or `none`                                                                                                                                                                                                                                  | `all`                                                                           |
 | `hidden_elements`  | list    | Elements left out of the card, by their ids. A hidden element is out of the total, the chart and the estimate too. The editor lists them by name                                                                                                                                                                           |                                                                                 |
 | `picked_items`     | list    | Items given a [colour](#colours) of their own in the bill, the chart and the share bar, by their ids. The editor lists them by name                                                                                                                                                                                        |                                                                                 |
+| `colors`           | map     | A [colour](#colours) for an element, by the elements' ids. The editor lists them by name                                                                                                                                                                                                                                   |
 | `height_mode`      | string  | How tall the card is. `auto` fits its content, `fixed` keeps it at `height`, `max` lets it grow up to `max_height`. In `fixed` and `max` the bill scrolls under the other parts. A height in grid rows, set in the layout tab of a sections view, is used instead                                                          | `fixed` when `height` is set, `max` when only `max_height` is, otherwise `auto` |
 | `height`           | number  | The card's height in pixels, for `fixed`                                                                                                                                                                                                                                                                                   |                                                                                 |
 | `max_height`       | number  | The card's greatest height in pixels, for `max`                                                                                                                                                                                                                                                                            |                                                                                 |
@@ -235,7 +236,7 @@ the card is inside, even in a sections view.
 | `scroll_indicator` | string  | How the bill shows that there is more when it scrolls in a card held to a height. `both` fades the edges where the bill runs on and shows a thin scrollbar, `fade` only fades the edges, `scrollbar` only shows the scrollbar                                                                                              | `both`                                                                          |
 
 Without the period switch and the arrows to earlier periods, the card's head is a single row of the site's name, the
-period and the total. Tapping the period there changes it to the next one the site follows.
+period and the total. Without the period switch the card stays on the period it is set to show.
 
 A site whose price doesn't vary, such as water at one price per cubic metre, has paid on average what it pays now.
 When the two read the same, the card shows the price once, and an estimate's average only when it differs from the
@@ -270,7 +271,7 @@ under way leave it out at once, and have it again once they have ended. It is le
 card can't tell whether it was a fixed fee.
 
 Pointing at a bar shows its cost by element and its consumption. Pressing a bar opens its own period, such as a day
-of a month, when the site follows that period.
+of a month, when the site follows that period and the card shows the period switch.
 
 A line over the bars follows the consumption, so a dear hour with little use stands apart from a cheap one with much.
 It is drawn by what was used per hour, on a scale of its own on the right. For energy in
@@ -282,8 +283,18 @@ colour is the text's, or the theme's `--utility-cost-usage-color`.
 ### Colours
 
 Each element has a colour of its own, in the bill, the chart and the share bar. An item picked in the options gets a
-shade of its element's colour, and the rest of the element stays in the element's own. The four element colours are
-used in turn and can be set in a theme.
+shade of its element's colour, and the rest of the element stays in the element's own.
+
+The card's `colors` option sets an element's colour, in the editor under Element colours. By hand it is written by
+the elements' ids, each with one of Home Assistant's named colours, such as `teal` or `deep-orange`, or any CSS colour:
+
+```yaml
+colors:
+  01JEXAMPLEENERGY000000000: teal
+  01JEXAMPLETRANSFER0000000: "#8e24aa"
+```
+
+An element without one gets one of four colours, used in turn, which can be set in a theme.
 
 | Variable                 | Default                           |
 | ------------------------ | --------------------------------- |

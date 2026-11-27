@@ -1,13 +1,14 @@
 /**
  * The card's visual editor: the site, the title, the period shown first, each part, how tax and the bill's lines are
- * shown, the elements hidden and the items picked, the height's rounding and how a scrolling bill shows there is more.
+ * shown, the elements hidden, the items picked and the elements' colours, the height's rounding and how a scrolling
+ * bill shows there is more.
  * The height mode is set in YAML only.
  */
 import { LitElement, html, nothing } from "lit";
 import type { PropertyValues, TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
 
-import { DEFAULT_SCROLL_INDICATOR, DOMAIN } from "./const";
+import { DEFAULT_SCROLL_INDICATOR, DOMAIN, ELEMENT_COLOR_NAMES } from "./const";
 import { scrollIndicatorData, scrollIndicatorSchema, tidyScrollIndicator } from "./fade";
 import type { HomeAssistant } from "./hass";
 import { browserLanguage, translate } from "./localize/localize";
@@ -18,6 +19,8 @@ import type { Site, UtilityCostCardConfig } from "./types";
 
 interface SchemaEntry {
     name: string;
+    /** A label of the entry's own, for one named by the site. */
+    label?: string;
 }
 
 const DEFAULTS: Record<string, unknown> = { ...PARTS_SHOWN, tax: "included", lines: "all" };
@@ -63,6 +66,18 @@ function schema(site: Site | undefined, config: UtilityCostCardConfig, text: (ke
                           },
                       },
                   },
+                  {
+                      // Not flattened, so the colours are an object by the elements' ids.
+                      name: "colors",
+                      type: "expandable",
+                      title: text("editor.colors"),
+                      // An element without a colour shows the one of its place, which a theme may have changed.
+                      schema: site.elements.map((element, index) => ({
+                          name: element.id,
+                          label: element.name,
+                          selector: { ui_color: { default_color: ELEMENT_COLOR_NAMES[index % ELEMENT_COLOR_NAMES.length] } },
+                      })),
+                  },
               ]
             : []),
         ...rowStepSchema(config, text),
@@ -96,14 +111,14 @@ export class UtilityCostCardEditor extends LitElement {
                 .hass=${this.hass}
                 .data=${{ ...DEFAULTS, ...scrollIndicatorData(rowStepData(this.config), DEFAULT_SCROLL_INDICATOR) }}
                 .schema=${schema(this.site, this.config, (key) => this.text(key))}
-                .computeLabel=${(entry: SchemaEntry) => this.text(`editor.${entry.name}`)}
+                .computeLabel=${(entry: SchemaEntry) => entry.label ?? this.text(`editor.${entry.name}`)}
                 .computeHelper=${(entry: SchemaEntry) => this.helper(entry.name)}
                 @value-changed=${this.valueChanged}
             ></ha-form>
         `;
     }
 
-    /** The site's elements and items, for the lists of the ones to hide and to pick. */
+    /** The site's elements and items, for the lists of the ones to hide, to pick and to colour. */
     private readSite(): void {
         const entry = this.config.site;
         if (!this.hass?.callWS || entry === this.asked) {
@@ -122,7 +137,7 @@ export class UtilityCostCardEditor extends LitElement {
                 }
             })
             .catch(() => {
-                // Without the site the two lists are left out, and the rest of the editor works.
+                // Without the site its lists are left out, and the rest of the editor works.
             });
     }
 
@@ -132,6 +147,7 @@ export class UtilityCostCardEditor extends LitElement {
             // Another site's elements and items have other ids.
             delete config.hidden_elements;
             delete config.picked_items;
+            delete config.colors;
         }
         for (const key of ["title", "period", "site"]) {
             if (!config[key]) {
@@ -142,6 +158,13 @@ export class UtilityCostCardEditor extends LitElement {
             if (!config[key]?.length) {
                 delete config[key];
             }
+        }
+        // An element left at the theme's colour is left out, and so is the whole option without any picked.
+        const colors = Object.entries(config.colors ?? {}).filter(([, color]) => color && color !== "default");
+        if (colors.length) {
+            config.colors = Object.fromEntries(colors);
+        } else {
+            delete config.colors;
         }
         // The defaults are shown in the form but left out of the configuration.
         for (const [key, value] of Object.entries(DEFAULTS)) {

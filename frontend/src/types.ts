@@ -38,6 +38,8 @@ export interface UtilityCostCardConfig extends LovelaceCardConfig, RowStepConfig
     hidden_elements?: string[];
     /** Items given a colour of their own in the legend, the bars and the share bar, by their ids. */
     picked_items?: string[];
+    /** Colours for elements, by their ids: Home Assistant's named colours or any CSS colours. Others keep the theme's. */
+    colors?: Record<string, string>;
 }
 
 export function shows(config: UtilityCostCardConfig | undefined, part: Part): boolean {

@@ -60,6 +60,16 @@ describe("the bill shown", () => {
         expect(bill.elements[0].items.map((item) => item.color !== undefined)).toEqual([true, false, false]);
     });
 
+    it("gives an element the colour picked for it, a named one from the theme, and its picked items a shade of that", () => {
+        const plain = shown(site(), MONTH, "month", options({ picked: ["spot"] }));
+        const bill = shown(site(), MONTH, "month", options({ picked: ["spot"], colors: { energy: "teal", transfer: "#123456" } }));
+        expect(bill.elements.map((element) => element.color)).toEqual(["var(--teal-color)", "#123456"]);
+        expect(bill.elements[0].items[0].color).toContain("var(--teal-color)");
+        // An element without a picked colour keeps the one of its place.
+        const one = shown(site(), MONTH, "month", options({ colors: { energy: "teal" } }));
+        expect(one.elements[1].color).toBe(plain.elements[1].color);
+    });
+
     it("gives two picked items of one element different colours", () => {
         const bill = shown(site(), MONTH, "month", options({ picked: ["spot", "margin"] }));
         const [spot, margin] = bill.elements[0].items;

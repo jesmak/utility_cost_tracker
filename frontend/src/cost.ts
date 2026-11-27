@@ -32,6 +32,8 @@ export interface Options {
     tax: TaxMode;
     hidden: string[];
     picked: string[];
+    /** The colours picked for elements, by their ids. */
+    colors?: Record<string, string>;
     /** What the items removed from the site are listed under. */
     removed?: string;
 }
@@ -77,13 +79,21 @@ export function inPeriod(item: SiteItem, period: Period): boolean {
     return item.kind !== "fixed_fee" || item.fee_period === null || covers(period, item.fee_period);
 }
 
-/** An element's main colour, by its place among all of the site's elements, so hiding one doesn't recolour the rest. */
-export function elementColor(site: Site, element: SiteElement): string {
+/**
+ * An element's main colour: the one picked for it, or one by its place among all of the site's elements, so hiding one
+ * doesn't recolour the rest. A picked colour is one of Home Assistant's named colours, as its colour picker gives them,
+ * or any CSS colour.
+ */
+export function elementColor(site: Site, element: SiteElement, colors: Record<string, string> = {}): string {
+    const picked = colors[element.id];
+    if (picked) {
+        return /^[a-z-]+$/.test(picked) ? `var(--${picked}-color)` : picked;
+    }
     return ELEMENT_COLORS[site.elements.indexOf(element) % ELEMENT_COLORS.length];
 }
 
 /** A picked item's colour: its element's, mixed towards the text colour a step further for each picked item before it. */
-export function itemColor(site: Site, item: SiteItem, picked: string[]): string | undefined {
+export function itemColor(site: Site, item: SiteItem, picked: string[], colors?: Record<string, string>): string | undefined {
     const mine = site.items.filter((other) => other.element === item.element && picked.includes(other.id));
     const place = mine.indexOf(item);
     const element = site.elements.find((candidate) => candidate.id === item.element);
@@ -91,7 +101,7 @@ export function itemColor(site: Site, item: SiteItem, picked: string[]): string 
         return undefined;
     }
     const share = Math.round(68 - place * (48 / mine.length));
-    return `color-mix(in srgb, ${elementColor(site, element)} ${share}%, var(--primary-text-color))`;
+    return `color-mix(in srgb, ${elementColor(site, element, colors)} ${share}%, var(--primary-text-color))`;
 }
 
 export function shown(site: Site, ledger: Ledger, period: Period, options: Options): Shown {
@@ -100,7 +110,7 @@ export function shown(site: Site, ledger: Ledger, period: Period, options: Optio
         if (options.hidden.includes(element.id)) {
             continue;
         }
-        const color = elementColor(site, element);
+        const color = elementColor(site, element, options.colors);
         const items: ShownItem[] = [];
         const picked: Segment[] = [];
         let beforeTax = 0;
@@ -113,7 +123,7 @@ export function shown(site: Site, ledger: Ledger, period: Period, options: Optio
             const amount = ledger.items[item.id] ?? { amount: 0, tax: 0 };
             beforeTax += amount.amount;
             tax += amount.tax;
-            const own = itemColor(site, item, options.picked);
+            const own = itemColor(site, item, options.picked, options.colors);
             items.push({ item, value: amount.amount + (options.tax === "included" ? amount.tax : 0), color: own });
             const part = amount.amount + (options.tax === "none" ? 0 : amount.tax);
             if (own) {

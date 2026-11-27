@@ -184,9 +184,6 @@ describe("the card", () => {
             "Spot price €74.05",
             "Transfer €37.65",
         ]);
-        all(element, ".names button")[0].click();
-        await settled(element);
-        expect(text(element, ".names button")).toContain("Today");
     });
 
     it("draws a bar for each part of the period, and tells what the bars leave out", async () => {
@@ -368,6 +365,17 @@ describe("the card", () => {
         expect(all(element, "button.column")).toHaveLength(0);
     });
 
+    it("without the period switch stays on its period: the one-row head's period is plain text and the bars open nothing", async () => {
+        const element = await card({ show_periods: false, show_earlier: false, show_estimate: false });
+        expect(all(element, ".compact .period")).toHaveLength(1);
+        expect(all(element, ".compact button")).toHaveLength(0);
+        expect(all(element, ".column").length).toBeGreaterThan(0);
+        expect(all(element, "button.column")).toHaveLength(0);
+
+        const arrows = await card({ show_periods: false, show_estimate: false });
+        expect(all(arrows, "button.column")).toHaveLength(0);
+    });
+
     it("draws the consumption as a line over the bars, up to the part under way, unless switched off", async () => {
         // 4.8 kWh in the month's first day, which is 0.2 an hour, and nothing written since.
         const used = consumed(4.8);
@@ -428,5 +436,39 @@ describe("the card", () => {
         expect(least(await card({ ...narrow, grid_options: { columns: 6 } }))).toBe(whole + 20);
         expect(least(await card({ ...narrow, layout_options: { grid_columns: 2 } }))).toBe(whole + 20);
         expect(least(await card({ ...narrow, grid_options: { columns: "full" } }))).toBe(whole);
+    });
+});
+
+describe("the editor", () => {
+    async function editor(config: Record<string, unknown>) {
+        const element = document.createElement("utility-cost-card-editor");
+        element.setConfig({ type: "custom:utility-cost-card", site: "home", ...config } as never);
+        element.hass = hass();
+        document.body.append(element);
+        for (let turn = 0; turn < 5; turn++) {
+            await new Promise((resolve) => setTimeout(resolve));
+            await element.updateComplete;
+        }
+        const form = element.shadowRoot!.querySelector("ha-form") as HTMLElement & { schema: { name: string; schema?: unknown[] }[] };
+        const changed = (value: Record<string, unknown>) => {
+            let config: Record<string, unknown> | undefined;
+            element.addEventListener("config-changed", (event) => (config = (event as CustomEvent).detail.config), { once: true });
+            form.dispatchEvent(new CustomEvent("value-changed", { detail: { value: { type: "custom:utility-cost-card", ...value } } }));
+            return config;
+        };
+        return { form, changed };
+    }
+
+    it("offers a colour for each of the site's elements by name, and keeps only the ones picked", async () => {
+        const { form, changed } = await editor({});
+        const colors = form.schema.find((entry) => entry.name === "colors");
+        expect(colors?.schema).toEqual([
+            { name: "energy", label: "Energy", selector: { ui_color: { default_color: "primary" } } },
+            { name: "transfer", label: "Transfer", selector: { ui_color: { default_color: "purple" } } },
+        ]);
+        expect(changed({ site: "home", colors: { energy: "teal", transfer: "default" } })?.colors).toEqual({ energy: "teal" });
+        expect(changed({ site: "home", colors: { energy: "", transfer: undefined } })).not.toHaveProperty("colors");
+        // Another site's elements have other ids.
+        expect(changed({ site: "cabin", colors: { energy: "teal" } })).not.toHaveProperty("colors");
     });
 });

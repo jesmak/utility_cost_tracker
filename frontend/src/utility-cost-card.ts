@@ -313,6 +313,7 @@ export class UtilityCostCard extends LitElement {
             tax: this.config?.tax ?? "included",
             hidden: this.config?.hidden_elements ?? [],
             picked: this.config?.picked_items ?? [],
+            colors: this.config?.colors ?? {},
             removed: this.text("card.removed"),
         };
     }
@@ -389,11 +390,9 @@ export class UtilityCostCard extends LitElement {
         `;
     }
 
-    /** Without the period switch and the earlier periods, the whole head is one row, and a tap on the period changes it. */
+    /** Without the period switch and the earlier periods, the whole head is one row. */
     private compact(site: Site, view: View, bill: Shown): TemplateResult {
         const config = this.config!;
-        const followed = this.followed(site);
-        const next = followed[(followed.indexOf(view.period) + 1) % followed.length];
         const guess = shows(config, "show_estimate") ? this.estimated(site, view, bill) : undefined;
         const averages = shows(config, "show_consumption");
         const short = (value: number | undefined) =>
@@ -423,13 +422,7 @@ export class UtilityCostCard extends LitElement {
             <div class="badge"><ha-icon .icon=${ICONS[site.utility ?? ""] ?? ICONS.other}></ha-icon></div>
             <div class="names">
                 <b title=${this.heading(site)}>${this.heading(site)}</b>
-                ${
-                    followed.length > 1
-                        ? html`<button type="button" class="period" title=${this.text("card.next_period")} @click=${() => this.pick(next)}>
-                              ${period} <ha-icon icon="mdi:swap-horizontal"></ha-icon>
-                          </button>`
-                        : html`<span class="period">${period}</span>`
-                }
+                <span class="period">${period}</span>
             </div>
             ${
                 guess
@@ -630,8 +623,8 @@ export class UtilityCostCard extends LitElement {
             .filter((point) => point.end > point.start)
             .map((point) => ({ at: (point.start + point.end) / 2, rate: (point.amount * HOUR_MS) / (point.end - point.start) }));
         const most = Math.max(...rates.map((point) => point.rate), 0);
-        // A bar opens its own period, where the site follows it and the card has a way back.
-        const opens = Boolean(site.periods[part]) && (shows(this.config, "show_periods") || !shows(this.config, "show_earlier"));
+        // A bar opens its own period, where the site follows it and the period switch is there as the way back.
+        const opens = Boolean(site.periods[part]) && shows(this.config, "show_periods");
         const hovered = this.hovered === undefined ? undefined : columns[this.hovered];
         // Both scales have the same steps, so one set of lines across the chart serves the bars and the line.
         const cost = scale(top);
@@ -1187,7 +1180,6 @@ export class UtilityCostCard extends LitElement {
                 .name,
                 .names b,
                 .names span,
-                .names button,
                 .value small,
                 .row-label,
                 .line-name,
@@ -1319,15 +1311,12 @@ export class UtilityCostCard extends LitElement {
                     line-height: 20px;
                 }
                 .names b,
-                .names span,
-                .names button {
+                .names span {
                     max-width: 100%;
                 }
-                .names span,
-                .names button {
+                .names span {
                     font-size: 12px;
                     color: var(--secondary-text-color);
-                    --mdc-icon-size: 13px;
                 }
                 .value {
                     /* Gives way before the name and the period do, down to the total and the average. */
@@ -1725,8 +1714,7 @@ export class UtilityCostCard extends LitElement {
                     }
                     /* A long name and a long period share the line, each cut short by its share. */
                     .names b,
-                    .names span,
-                    .names button {
+                    .names span {
                         min-width: 0;
                     }
                     .value {

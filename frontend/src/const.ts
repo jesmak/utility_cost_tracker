@@ -31,10 +31,11 @@ export const ICONS: Record<string, string> = {
     other: "mdi:cash",
 };
 
+/** The names of the elements' main colours in turn, as Home Assistant names its colours (`--<name>-color`). */
+export const ELEMENT_COLOR_NAMES = ["primary", "purple", "success", "warning"];
+const FALLBACKS = ["#03a9f4", "#926bc7", "#43a047", "#ffa600"];
+
 /** The elements' main colours, in turn. Each can be changed in a theme. */
-export const ELEMENT_COLORS = [
-    "var(--utility-cost-color-1, var(--primary-color, #03a9f4))",
-    "var(--utility-cost-color-2, var(--purple-color, #926bc7))",
-    "var(--utility-cost-color-3, var(--success-color, #43a047))",
-    "var(--utility-cost-color-4, var(--warning-color, #ffa600))",
-];
+export const ELEMENT_COLORS = ELEMENT_COLOR_NAMES.map(
+    (name, index) => `var(--utility-cost-color-${index + 1}, var(--${name}-color, ${FALLBACKS[index]}))`,
+);
