@@ -11,7 +11,7 @@ import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
 
 import { CARD_VERSION, DEFAULT_SCROLL_INDICATOR, DOMAIN, ICONS, REFRESH_MS } from "./const";
-import { REMOVED, averagePrice, estimate, inPeriod, listed, shown } from "./cost";
+import { REMOVED, add, averagePrice, emptyLedger, estimate, inPeriod, listed, shown } from "./cost";
 import type { Options, Segment, Shown } from "./cost";
 import { StatisticsCache, loadView } from "./data";
 import type { Column, View } from "./data";
@@ -394,33 +394,78 @@ export class UtilityCostCard extends LitElement {
         const config = this.config!;
         const followed = this.followed(site);
         const next = followed[(followed.indexOf(view.period) + 1) % followed.length];
-        const details: string[] = [];
         const guess = shows(config, "show_estimate") ? this.estimated(site, view, bill) : undefined;
-        if (guess) {
-            details.push(this.text("card.estimate_short").replace("{amount}", this.money(site, guess.total, 0)));
-        }
-        const average = averagePrice(site, bill, view.ledger.consumption);
-        if (shows(config, "show_consumption") && average !== undefined) {
-            details.push(this.price(site, average));
-        }
-        if (shows(config, "show_price") && site.prices.total != null) {
-            details.push(this.text("card.now").replace("{price}", this.number(site.prices.total, 2)));
-        }
-        const detail = details.join(" · ");
+        const averages = shows(config, "show_consumption");
+        const short = (value: number | undefined) =>
+            averages && value !== undefined ? this.text("card.average_short").replace("{price}", this.price(site, value)) : undefined;
+        const average = short(averagePrice(site, bill, view.ledger.consumption));
+        // The unit is said once on one row, with the average, and on two lines with both, as they are at the line's ends.
+        const [nowBefore, nowAfter] = this.text("card.now").split("{price}");
+        const price = shows(config, "show_price") ? site.prices.total : undefined;
+        const now =
+            price == null ? undefined : html`${nowBefore}${this.number(price, 2)}<span class="unit"> ${site.price_unit}</span>${nowAfter}`;
+        const said = price == null ? undefined : `${nowBefore}${this.price(site, price)}${nowAfter}`;
+        const [before, after] = this.text("card.estimate_short").split("{amount}");
+        const [label, , brief] = this.label(view);
+        const period = brief ? html`<span class="long">${label}</span><span class="brief">${brief}</span>` : label;
         return html`<div class="part compact">
             <div class="badge"><ha-icon .icon=${ICONS[site.utility ?? ""] ?? ICONS.other}></ha-icon></div>
             <div class="names">
                 <b title=${this.heading(site)}>${this.heading(site)}</b>
                 ${
                     followed.length > 1
-                        ? html`<button type="button" title=${this.text("card.next_period")} @click=${() => this.pick(next)}>
-                              ${this.label(view)[0]} <ha-icon icon="mdi:swap-horizontal"></ha-icon>
+                        ? html`<button type="button" class="period" title=${this.text("card.next_period")} @click=${() => this.pick(next)}>
+                              ${period} <ha-icon icon="mdi:swap-horizontal"></ha-icon>
                           </button>`
-                        : html`<span>${this.label(view)[0]}</span>`
+                        : html`<span class="period">${period}</span>`
                 }
             </div>
-            <div class="value">${this.money(site, bill.total)}<small title=${detail}>${detail}</small></div>
+            ${
+                guess
+                    ? html`<div class="guess">
+                          <span>${before}<b>${this.money(site, guess.total, 0)}</b>${after}</span>
+                          <small>${short(this.estimatedAverage(site, view)) ?? nothing}</small>
+                      </div>`
+                    : nothing
+            }
+            <div class="value">
+                ${this.money(site, bill.total)}
+                <small title=${[average, said].filter(Boolean).join(" · ")}
+                    >${average ? html`<span>${average}</span>` : nothing}${now ? html`<span class="now">${now}</span>` : nothing}</small
+                >
+            </div>
         </div>`;
+    }
+
+    /** The average price of the whole period as estimated: this one so far and the rest of the previous one. */
+    private estimatedAverage(site: Site, view: View): number | undefined {
+        const whole = add(add(add(emptyLedger(), view.ledger), view.previous!), view.previousSame!, -1);
+        return averagePrice(site, shown(site, whole, view.period, this.options()), whole.consumption);
+    }
+
+    /**
+     * What the one-row head gives up when its texts don't fit: first the estimate, then the period's long name for its
+     * brief one. The price now goes by itself, wrapped onto a line that isn't shown.
+     */
+    private fitHead(): void {
+        const head = this.renderRoot.querySelector<HTMLElement>(".compact");
+        const name = head?.querySelector<HTMLElement>(".names b");
+        const period = head?.querySelector<HTMLElement>(".period");
+        if (!head || !name || !period) {
+            return;
+        }
+        head.classList.remove("no-guess", "brief-period");
+        const cut = (element: HTMLElement) => element.scrollWidth > element.clientWidth;
+        const now = head.querySelector<HTMLElement>(".now");
+        const average = now?.previousElementSibling as HTMLElement | null | undefined;
+        if (cut(name) || cut(period) || (now && average && now.offsetTop > average.offsetTop)) {
+            head.classList.add("no-guess");
+        }
+        // On two lines the name and the period share a line, so a cut name is helped by a shorter period too.
+        const shared = getComputedStyle(period.parentElement!).flexDirection === "row";
+        if (cut(period) || (shared && cut(name))) {
+            head.classList.add("brief-period");
+        }
     }
 
     private consumption(site: Site, view: View, bill: Shown): TemplateResult {
@@ -791,7 +836,8 @@ export class UtilityCostCard extends LitElement {
     }
 
     /** The period's name, and a second line that places it, when it needs one. */
-    private label(view: View): [string, string] {
+    /** The period's name, what is said under it, and for a month a brief name for where the long one doesn't fit. */
+    private label(view: View): [string, string, string?] {
         const date = (at: number, options: Intl.DateTimeFormatOptions) =>
             new Intl.DateTimeFormat(this.language(), { ...options, timeZone: this.zone() }).format(at);
         const day: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "numeric" };
@@ -814,7 +860,11 @@ export class UtilityCostCard extends LitElement {
             }
             case "month": {
                 const month = date(view.from, { month: "long", year: "numeric" });
-                return [month.charAt(0).toUpperCase() + month.slice(1), ""];
+                return [
+                    month.charAt(0).toUpperCase() + month.slice(1),
+                    "",
+                    `${date(view.from, { month: "numeric" })}/${date(view.from, { year: "numeric" })}`,
+                ];
             }
             default:
                 return [date(view.from, { year: "numeric" }), ""];
@@ -958,7 +1008,10 @@ export class UtilityCostCard extends LitElement {
 
     private measureSoon(): void {
         cancelAnimationFrame(this.frame ?? 0);
-        this.frame = requestAnimationFrame(() => this.fillRows());
+        this.frame = requestAnimationFrame(() => {
+            this.fitHead();
+            this.fillRows();
+        });
     }
 
     /**
@@ -1233,9 +1286,8 @@ export class UtilityCostCard extends LitElement {
                     background: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
                 }
                 .names {
-                    flex: 1;
-                    /* The detail under the total is cut short before the name and the period's button are. */
-                    min-width: min(45%, 80px);
+                    flex: 1 1 auto;
+                    min-width: 0;
                     display: flex;
                     flex-direction: column;
                     align-items: flex-start;
@@ -1253,20 +1305,58 @@ export class UtilityCostCard extends LitElement {
                     --mdc-icon-size: 13px;
                 }
                 .value {
-                    flex: 0 1 auto;
-                    min-width: 0;
+                    /* Gives way before the name and the period do, down to the total and the average. */
+                    flex: 0 9999 auto;
+                    min-width: min-content;
                     text-align: right;
                     font-size: 22px;
                     font-weight: 700;
                     line-height: 24px;
                     white-space: nowrap;
                 }
-                .value small {
+                .value small,
+                .guess small {
                     display: block;
+                    height: 16px;
                     font-size: 11px;
                     font-weight: 400;
                     line-height: 16px;
                     color: var(--secondary-text-color);
+                }
+                /* The price now wraps onto a second line, which isn't shown, when it doesn't fit beside the average. */
+                .value small {
+                    display: flex;
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                    column-gap: 3px;
+                }
+                .now::before {
+                    content: "· ";
+                }
+                .unit {
+                    display: none;
+                }
+                .guess {
+                    flex: none;
+                    padding-right: 10px;
+                    border-right: 1px solid var(--divider-color);
+                    text-align: right;
+                    font-size: 11px;
+                    line-height: 24px;
+                    color: var(--secondary-text-color);
+                    white-space: nowrap;
+                }
+                .guess b {
+                    font-size: 15px;
+                    font-weight: 600;
+                }
+                .no-guess .guess,
+                .brief,
+                .brief-period .long {
+                    display: none;
+                }
+                .brief-period .brief {
+                    display: inline;
                 }
                 .estimate {
                     border-radius: 10px;
@@ -1590,7 +1680,8 @@ export class UtilityCostCard extends LitElement {
                         gap: 0 8px;
                         height: ${COMPACT_NARROW_HEIGHT}px;
                     }
-                    .badge {
+                    .badge,
+                    .guess {
                         display: none;
                     }
                     .names {
@@ -1609,6 +1700,19 @@ export class UtilityCostCard extends LitElement {
                     .value {
                         flex: 1 0 100%;
                         text-align: left;
+                    }
+                    /* The brief name is whole, and the site's name is cut short for it. */
+                    .brief-period .period {
+                        flex: none;
+                    }
+                    .value small {
+                        justify-content: space-between;
+                    }
+                    .now::before {
+                        content: none;
+                    }
+                    .unit {
+                        display: inline;
                     }
                 }
             `,

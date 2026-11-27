@@ -39,6 +39,25 @@ function hass(asked: Asked[] = [], answer: () => unknown = site): HomeAssistant 
     };
 }
 
+/** A recorder where the month before is whole in the history, and cost 30 an item. */
+function monthBefore(): HomeAssistant {
+    return {
+        ...hass(),
+        callWS: async <T>(message: Record<string, unknown>) =>
+            (message.type === "utility_cost_tracker/site"
+                ? site()
+                : {
+                      "utility_cost_tracker:home_spot_cost": [
+                          {
+                              start: Date.parse(message.start_time as string),
+                              end: Date.parse(message.start_time as string) + 1,
+                              change: 30,
+                          },
+                      ],
+                  }) as T,
+    };
+}
+
 async function card(config: Record<string, unknown> = {}, from = hass()): Promise<UtilityCostCard> {
     const element = document.createElement("utility-cost-card") as UtilityCostCard;
     element.setConfig({ type: "custom:utility-cost-card", site: "home", ...config } as never);
@@ -137,7 +156,8 @@ describe("the card", () => {
         });
         expect(all(element, ".header, .periods, .earlier, .bill")).toEqual([]);
         expect(text(element, ".value")).toContain("€115.46");
-        expect(text(element, ".value small")).toBe("19.83 c/kWh · now 17.00");
+        expect(all(element, ".value small > span").map((part) => part.textContent)).toEqual(["avg. 19.83 c/kWh", "now 17.00 c/kWh"]);
+        expect(all(element, ".guess")).toEqual([]);
         expect(all(element, ".share i")).toHaveLength(3);
         expect(all(element, ".legend span").map((entry) => entry.textContent?.replace(/\s+/g, " ").trim())).toEqual([
             "Energy €77.81",
@@ -210,23 +230,15 @@ describe("the card", () => {
         expect(bare.getGridOptions().min_rows).toBeLessThan(element.getGridOptions().min_rows as number);
     });
 
+    it("has the estimate beside the one-row head's total, with its own average, and a brief name for a month", async () => {
+        const element = await card({ show_periods: false, show_earlier: false, show_bill: false, show_chart: false }, monthBefore());
+        expect(text(element, ".guess")).toMatch(/^estimate €\d+ avg\. [\d.]+ c\/kWh$/);
+        expect(text(element, ".period .long")).toMatch(/^[A-Z][a-z]+ \d{4}$/);
+        expect(text(element, ".period .brief")).toMatch(/^\d{1,2}\/\d{4}$/);
+    });
+
     it("has the estimate as a line under the total when held too low for its box, and counts its least height with the line", async () => {
-        // The month before is whole in the history, and cost 30 an item.
-        const answers = {
-            ...hass(),
-            callWS: async <T>(message: Record<string, unknown>) =>
-                (message.type === "utility_cost_tracker/site"
-                    ? site()
-                    : {
-                          "utility_cost_tracker:home_spot_cost": [
-                              {
-                                  start: Date.parse(message.start_time as string),
-                                  end: Date.parse(message.start_time as string) + 1,
-                                  change: 30,
-                              },
-                          ],
-                      }) as T,
-        };
+        const answers = monthBefore();
         const held = async (rows: number) => {
             const element = document.createElement("utility-cost-card") as UtilityCostCard;
             element.setConfig({ type: "custom:utility-cost-card", site: "home", show_bill: false, grid_options: { rows } } as never);

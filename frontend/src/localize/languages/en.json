@@ -30,6 +30,7 @@
         "later": "Later period",
         "next_period": "Change the period",
         "average": "average {price}",
+        "average_short": "avg. {price}",
         "estimate": "Estimate for the whole period",
         "estimate_short": "estimate {amount}",
         "so_far": "So far",

@@ -30,6 +30,7 @@
         "later": "Myöhempi jakso",
         "next_period": "Vaihda jaksoa",
         "average": "keskimäärin {price}",
+        "average_short": "ka. {price}",
         "estimate": "Arvio koko jaksolle",
         "estimate_short": "arvio {amount}",
         "so_far": "Tähän asti",
